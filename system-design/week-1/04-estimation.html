@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Back-of-Envelope Estimation — Class Notes</title>
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <a href="../../index.html" class="sidebar-brand">📘 Class Notes</a>
+    <div class="sidebar-tagline">System Design & Backend Engineering</div>
+    <nav>
+      <div class="week-block">
+        <div class="week-title">Course</div>
+        <ul>
+          <li><a href="../../index.html">Home</a></li>
+          <li><a href="../index.html">System Design — All Weeks</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 1 — HLD Foundations</div>
+        <ul>
+          <li><a href="01-hld-approach.html">Approaching an HLD Interview</a></li>
+          <li><a href="02-cap-theorem.html">CAP Theorem & Consistency</a></li>
+          <li><a href="03-sql-vs-nosql.html">SQL vs NoSQL</a></li>
+          <li><a href="04-estimation.html" class="active">Back-of-Envelope Estimation</a></li>
+          <li><a href="05-api-data-model.html">API Design & Data Model</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 2 — Core Infra Building Blocks</div>
+        <ul>
+          <li><a href="../week-2/01-networking-load-balancers.html">Load Balancers & Networking</a></li>
+          <li><a href="../week-2/02-cdn-dns-reverse-proxy.html">CDN, DNS & Reverse Proxies</a></li>
+          <li><a href="../week-2/03-caching-strategies.html">Caching Strategies</a></li>
+          <li><a href="../week-2/04-redis-deep-dive.html">Redis Deep Dive</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="sidebar-footer">Updated as classes progress.</div>
+  </aside>
+
+  <main class="content">
+    <div class="content-inner">
+      <div class="breadcrumb"><a href="../../index.html">Home</a> / <a href="../index.html">System Design</a> / Week 1</div>
+      <div class="page-header"><h1>Back-of-Envelope Estimation</h1></div>
+      <div class="page-meta"><span class="tag">Week 1</span><span class="tag green">Math</span></div>
+
+      <article>
+        <p>Estimation converts a vague prompt ("design Twitter") into numbers that drive real decisions: whether you need a cache, whether one DB node is enough, whether you need sharding, how much this will cost. You don't need precision — you need the right <strong>order of magnitude</strong>.</p>
+
+        <h2>Numbers worth memorizing</h2>
+        <table>
+          <tr><th>Time period</th><th>Seconds</th></tr>
+          <tr><td>1 day</td><td>~86,400 (~10⁵)</td></tr>
+          <tr><td>1 month</td><td>~2.6 million</td></tr>
+          <tr><td>1 year</td><td>~31.5 million (~3 × 10⁷)</td></tr>
+        </table>
+        <table>
+          <tr><th>Latency (order of magnitude)</th><th>Time</th></tr>
+          <tr><td>L1 cache reference</td><td>~1 ns</td></tr>
+          <tr><td>Main memory reference</td><td>~100 ns</td></tr>
+          <tr><td>SSD random read</td><td>~100 μs (0.1 ms)</td></tr>
+          <tr><td>Round trip within same datacenter</td><td>~0.5 ms</td></tr>
+          <tr><td>Disk seek (HDD)</td><td>~10 ms</td></tr>
+          <tr><td>Round trip across US / continents</td><td>~50–150 ms</td></tr>
+        </table>
+        <table>
+          <tr><th>Storage</th><th>Bytes</th></tr>
+          <tr><td>1 KB</td><td>10³</td></tr>
+          <tr><td>1 MB</td><td>10⁶</td></tr>
+          <tr><td>1 GB</td><td>10⁹</td></tr>
+          <tr><td>1 TB</td><td>10¹²</td></tr>
+          <tr><td>1 PB</td><td>10¹⁵</td></tr>
+        </table>
+
+        <h2>The estimation checklist</h2>
+        <ol>
+          <li><strong>Users:</strong> total registered users → daily active users (DAU) → typically ~10–20% of total for a mature consumer app.</li>
+          <li><strong>Requests per user per day:</strong> how many times does a typical user perform the core action (post, read, search)?</li>
+          <li><strong>QPS (average):</strong> (DAU × actions per user per day) ÷ 86,400 seconds.</li>
+          <li><strong>Peak QPS:</strong> average QPS × peak factor (commonly 2–5×, since traffic isn't uniform across the day).</li>
+          <li><strong>Read:write ratio:</strong> most consumer apps are heavily read-skewed (100:1 or more) — this alone justifies caching.</li>
+          <li><strong>Storage per item and per day/year.</strong></li>
+          <li><strong>Bandwidth:</strong> requests/sec × average payload size.</li>
+        </ol>
+
+        <h2>Worked example: URL Shortener</h2>
+        <div class="callout">
+          <div class="callout-title">Assumptions</div>
+          100M new short URLs created per month. Read:write ratio of 100:1 (people click links far more than they create them). Each URL record ≈ 500 bytes (short code, long URL, metadata, indexes).
+        </div>
+        <pre><code>Writes/month  = 100,000,000
+Writes/sec avg = 100,000,000 / 2,600,000 ≈ 38 writes/sec
+Reads/sec avg  = 38 × 100 ≈ 3,800 reads/sec
+
+Peak (assume 3x average):
+  Peak writes ≈ 115/sec
+  Peak reads  ≈ 11,400/sec
+
+Storage:
+  Per record ≈ 500 bytes
+  Per month  = 100M × 500B = 50 GB/month
+  Per year   ≈ 600 GB/year
+  5-year storage ≈ 3 TB → fits comfortably on a single well-provisioned DB with room to spare;
+  sharding is optional for storage, but the ~11K reads/sec at peak means you DEFINITELY want a cache
+  (e.g. Redis) in front of the DB rather than hitting it directly.
+</code></pre>
+
+        <h2>Worked example: Chat app (WhatsApp-scale)</h2>
+        <div class="callout">
+          <div class="callout-title">Assumptions</div>
+          500M DAU, each sends 40 messages/day on average, average message size 100 bytes (text only; media handled separately via object storage + CDN).
+        </div>
+        <pre><code>Messages/day = 500,000,000 × 40 = 20,000,000,000 (20B messages/day)
+Messages/sec avg = 20,000,000,000 / 86,400 ≈ 231,000 msgs/sec
+Peak (3x)         ≈ 700,000 msgs/sec
+
+Storage/day = 20B × 100 bytes ≈ 2 TB/day (text only)
+Storage/year ≈ 730 TB/year
+
+Takeaways: this volume is IMPOSSIBLE for a single relational primary — you need
+horizontal partitioning (shard by conversation_id or user_id), a wide-column /
+log-structured store optimized for high write throughput, and message delivery
+decoupled via queues per-connection (not synchronous DB writes on the hot path).
+</code></pre>
+
+        <div class="callout interview">
+          <div class="callout-title">What the interviewer is actually grading</div>
+          Not your arithmetic — your judgment about what the numbers <em>imply</em>. "3,800 reads/sec average, ~11K peak" should make you say "this justifies an in-memory cache in front of the database" out loud. If you compute numbers and then never refer to them again while drawing your architecture, you've wasted 5 minutes.
+        </div>
+
+        <h2>Rules of thumb</h2>
+        <ul>
+          <li>A single modern relational DB (well-tuned Postgres/MySQL) can typically handle low-thousands of writes/sec and tens of thousands of reads/sec with read replicas — beyond that, think caching, sharding, or a different store.</li>
+          <li>A single Redis instance can serve on the order of 100K+ simple ops/sec — it's rarely your bottleneck, but memory (RAM cost) is.</li>
+          <li>Round aggressively. 86,400 sec/day ≈ 10⁵ is a fine approximation for mental math.</li>
+          <li>Always sanity-check: does the peak QPS make sense given DAU? A number like "5M QPS for a 1M DAU app" should make you re-check your math.</li>
+        </ul>
+      </article>
+
+      <div class="page-nav">
+        <a href="03-sql-vs-nosql.html"><span class="dir">Previous</span>SQL vs NoSQL</a>
+        <a class="next" href="05-api-data-model.html"><span class="dir">Next</span>API Design & Data Model →</a>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

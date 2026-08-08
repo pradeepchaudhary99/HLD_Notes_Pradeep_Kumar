@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Design & Data Model — Class Notes</title>
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <a href="../../index.html" class="sidebar-brand">📘 Class Notes</a>
+    <div class="sidebar-tagline">System Design & Backend Engineering</div>
+    <nav>
+      <div class="week-block">
+        <div class="week-title">Course</div>
+        <ul>
+          <li><a href="../../index.html">Home</a></li>
+          <li><a href="../index.html">System Design — All Weeks</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 1 — HLD Foundations</div>
+        <ul>
+          <li><a href="01-hld-approach.html">Approaching an HLD Interview</a></li>
+          <li><a href="02-cap-theorem.html">CAP Theorem & Consistency</a></li>
+          <li><a href="03-sql-vs-nosql.html">SQL vs NoSQL</a></li>
+          <li><a href="04-estimation.html">Back-of-Envelope Estimation</a></li>
+          <li><a href="05-api-data-model.html" class="active">API Design & Data Model</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 2 — Core Infra Building Blocks</div>
+        <ul>
+          <li><a href="../week-2/01-networking-load-balancers.html">Load Balancers & Networking</a></li>
+          <li><a href="../week-2/02-cdn-dns-reverse-proxy.html">CDN, DNS & Reverse Proxies</a></li>
+          <li><a href="../week-2/03-caching-strategies.html">Caching Strategies</a></li>
+          <li><a href="../week-2/04-redis-deep-dive.html">Redis Deep Dive</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="sidebar-footer">Updated as classes progress.</div>
+  </aside>
+
+  <main class="content">
+    <div class="content-inner">
+      <div class="breadcrumb"><a href="../../index.html">Home</a> / <a href="../index.html">System Design</a> / Week 1</div>
+      <div class="page-header"><h1>API Design & Data Model</h1></div>
+      <div class="page-meta"><span class="tag">Week 1</span><span class="tag green">Design</span></div>
+
+      <article>
+        <p>Before drawing architecture boxes, define the <strong>contract</strong> (API) and the <strong>shape of the data</strong> (schema). This forces clarity — you can't design a good architecture around an API you haven't specified.</p>
+
+        <h2>API design principles</h2>
+        <ul>
+          <li><strong>Resource-oriented (REST):</strong> nouns, not verbs. <code>POST /urls</code>, not <code>POST /createUrl</code>.</li>
+          <li><strong>Use HTTP methods correctly:</strong> GET (read, idempotent, cacheable), POST (create), PUT/PATCH (update — PUT replaces, PATCH partially updates), DELETE (remove).</li>
+          <li><strong>Pagination on any list endpoint.</strong> Prefer cursor-based (<code>?cursor=abc123&limit=20</code>) over offset-based for large, frequently-changing datasets — offset pagination re-scans and can skip/duplicate items as data shifts.</li>
+          <li><strong>Idempotency for writes:</strong> critical for POST/PUT under retries (client timeouts, network blips). Use an <code>Idempotency-Key</code> header so a retried request doesn't create a duplicate resource (e.g. double-charging a payment).</li>
+          <li><strong>Versioning:</strong> <code>/v1/...</code> in the path or an <code>Accept</code> header, so you can evolve without breaking existing clients.</li>
+          <li><strong>Rate limiting signaled via headers:</strong> <code>X-RateLimit-Limit</code>, <code>X-RateLimit-Remaining</code>, <code>429 Too Many Requests</code>.</li>
+          <li><strong>Consistent error format:</strong> a standard shape (<code>{ "error": { "code", "message" } }</code>) with correct HTTP status codes (400 bad input, 401/403 auth, 404 not found, 409 conflict, 429 rate-limited, 5xx server error).</li>
+        </ul>
+
+        <div class="callout interview">
+          <div class="callout-title">REST vs gRPC vs GraphQL — quick take</div>
+          <strong>REST</strong>: simple, cacheable, great for public/external APIs. <strong>gRPC</strong>: binary (protobuf), fast, strongly typed, ideal for internal service-to-service calls with strict schemas and streaming. <strong>GraphQL</strong>: client decides exactly what fields it needs in one round trip — great for complex, nested UI data (mobile apps hitting many entity types) but adds complexity around caching and query cost control.
+        </div>
+
+        <h2>Worked example: URL Shortener API</h2>
+        <pre><code>POST /v1/urls
+Body: { "long_url": "https://example.com/very/long/path", "custom_alias": "optional", "ttl_days": 365 }
+Response 201: { "short_code": "aZ3kD9", "short_url": "https://short.ly/aZ3kD9", "expires_at": "2027-08-08" }
+
+GET /v1/urls/{short_code}
+Response 302: redirect to long_url  (or 404 if not found/expired)
+
+GET /v1/urls/{short_code}/stats
+Response 200: { "clicks": 1204, "created_at": "...", "last_accessed": "..." }
+
+DELETE /v1/urls/{short_code}
+Response 204: no content
+</code></pre>
+
+        <h2>Data modeling</h2>
+        <p>Two steps: identify <strong>entities</strong> and their relationships, then decide the <strong>physical schema</strong> based on access patterns (not just "what feels normalized").</p>
+
+        <h3>1. Entity-relationship sketch</h3>
+        <p>For a Twitter-like feed: <code>User</code> (1) —follows→ (many) <code>User</code>; <code>User</code> (1) —posts→ (many) <code>Tweet</code>; <code>Tweet</code> (1) —has→ (many) <code>Like</code>, <code>Reply</code>. Draw this before touching SQL/NoSQL — it's storage-agnostic.</p>
+
+        <h3>2. Schema, driven by queries</h3>
+        <p>In NoSQL/wide-column design especially, <strong>model for your read queries first</strong>, not for normalization. Ask "what's the most common query?" and design the partition/sort key to answer it in one lookup.</p>
+
+        <pre><code>-- Relational schema (URL shortener)
+CREATE TABLE urls (
+  short_code   VARCHAR(10) PRIMARY KEY,
+  long_url     TEXT NOT NULL,
+  user_id      BIGINT REFERENCES users(id),
+  created_at   TIMESTAMP DEFAULT now(),
+  expires_at   TIMESTAMP,
+  click_count  BIGINT DEFAULT 0
+);
+CREATE INDEX idx_urls_user_id ON urls(user_id);
+</code></pre>
+
+        <pre><code>-- Wide-column schema (chat messages, Cassandra-style)
+-- Partition key = conversation_id → all messages for a chat live together
+-- Clustering key = message_id (time-ordered, e.g. Snowflake ID) → naturally sorted for range scans
+TABLE messages (
+  conversation_id  UUID,
+  message_id       BIGINT,   -- time-sortable ID
+  sender_id        UUID,
+  body             TEXT,
+  sent_at          TIMESTAMP,
+  PRIMARY KEY (conversation_id, message_id)
+)
+-- Query: "get last 50 messages in conversation X" is now a single, fast partition scan.
+</code></pre>
+
+        <h3>3. Generating unique, short, and scalable IDs</h3>
+        <p>A recurring deep-dive: how do you generate <code>short_code</code> or <code>message_id</code> without a single point of contention?</p>
+        <ul>
+          <li><strong>Auto-increment / sequence:</strong> simple, but a single bottleneck and reveals volume/order — bad for multi-region.</li>
+          <li><strong>UUID v4:</strong> globally unique, no coordination needed, but random (bad for DB index locality) and not sortable by time.</li>
+          <li><strong>Snowflake-style IDs</strong> (Twitter's approach): 64-bit ID = timestamp + machine/shard ID + per-machine sequence number. Sortable by time, globally unique without central coordination, used everywhere in practice (Discord, Instagram adapted it too).</li>
+          <li><strong>Base62 encoding of a counter:</strong> for URL shorteners specifically — take an incrementing 64-bit ID (from a distributed counter/range allocator) and encode it in base62 (a-z, A-Z, 0-9) to get a short, unique string like <code>aZ3kD9</code>.</li>
+        </ul>
+
+        <div class="callout">
+          <div class="callout-title">Interview tip</div>
+          When asked "how do you generate unique IDs at scale," Snowflake-style IDs are the strongest general answer — mention timestamp bits (sortability), shard/worker-ID bits (no coordination across machines), and sequence bits (multiple IDs per millisecond per machine).
+        </div>
+      </article>
+
+      <div class="page-nav">
+        <a href="04-estimation.html"><span class="dir">Previous</span>Back-of-Envelope Estimation</a>
+        <a class="next" href="../week-2/01-networking-load-balancers.html"><span class="dir">Next</span>Week 2: Load Balancers & Networking →</a>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

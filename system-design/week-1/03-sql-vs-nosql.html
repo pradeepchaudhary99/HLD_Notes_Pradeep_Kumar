@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SQL vs NoSQL — Class Notes</title>
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <a href="../../index.html" class="sidebar-brand">📘 Class Notes</a>
+    <div class="sidebar-tagline">System Design & Backend Engineering</div>
+    <nav>
+      <div class="week-block">
+        <div class="week-title">Course</div>
+        <ul>
+          <li><a href="../../index.html">Home</a></li>
+          <li><a href="../index.html">System Design — All Weeks</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 1 — HLD Foundations</div>
+        <ul>
+          <li><a href="01-hld-approach.html">Approaching an HLD Interview</a></li>
+          <li><a href="02-cap-theorem.html">CAP Theorem & Consistency</a></li>
+          <li><a href="03-sql-vs-nosql.html" class="active">SQL vs NoSQL</a></li>
+          <li><a href="04-estimation.html">Back-of-Envelope Estimation</a></li>
+          <li><a href="05-api-data-model.html">API Design & Data Model</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 2 — Core Infra Building Blocks</div>
+        <ul>
+          <li><a href="../week-2/01-networking-load-balancers.html">Load Balancers & Networking</a></li>
+          <li><a href="../week-2/02-cdn-dns-reverse-proxy.html">CDN, DNS & Reverse Proxies</a></li>
+          <li><a href="../week-2/03-caching-strategies.html">Caching Strategies</a></li>
+          <li><a href="../week-2/04-redis-deep-dive.html">Redis Deep Dive</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="sidebar-footer">Updated as classes progress.</div>
+  </aside>
+
+  <main class="content">
+    <div class="content-inner">
+      <div class="breadcrumb"><a href="../../index.html">Home</a> / <a href="../index.html">System Design</a> / Week 1</div>
+      <div class="page-header"><h1>SQL vs NoSQL — When and Why</h1></div>
+      <div class="page-meta"><span class="tag">Week 1</span><span class="tag green">Data Stores</span></div>
+
+      <article>
+        <p>This is one of the most-asked "justify your choice" questions in HLD interviews. The honest answer is almost never "NoSQL doesn't scale" or "SQL can't scale" — modern systems scale both. The real decision is about <strong>data shape, access patterns, and consistency needs.</strong></p>
+
+        <h2>Relational (SQL) databases</h2>
+        <p>Examples: PostgreSQL, MySQL, SQL Server, Oracle.</p>
+        <ul>
+          <li><strong>Fixed schema</strong> with tables, rows, and typed columns, enforced at write time.</li>
+          <li><strong>ACID transactions</strong> — Atomicity, Consistency, Isolation, Durability — across multiple rows/tables.</li>
+          <li><strong>Joins</strong> are first-class, so relationships between entities (users, orders, products) are cheap to query.</li>
+          <li>Strong consistency by default (single primary), horizontal scaling needs extra work (read replicas, sharding, or tools like Vitess/Citus).</li>
+        </ul>
+
+        <h2>NoSQL databases</h2>
+        <p>An umbrella term for four broad families — pick the one that matches your access pattern, not "NoSQL" as a single thing.</p>
+
+        <table>
+          <tr><th>Type</th><th>Examples</th><th>Best for</th></tr>
+          <tr><td>Key-value</td><td>Redis, DynamoDB, Memcached</td><td>Simple lookups by ID: sessions, caches, feature flags</td></tr>
+          <tr><td>Document</td><td>MongoDB, Couchbase</td><td>Semi-structured, nested data that changes shape often: user profiles, product catalogs, CMS content</td></tr>
+          <tr><td>Wide-column</td><td>Cassandra, HBase, Bigtable</td><td>Massive write throughput, time-series, append-heavy data across many nodes</td></tr>
+          <tr><td>Graph</td><td>Neo4j, Neptune</td><td>Deep relationship traversal: social graphs, recommendation engines, fraud detection</td></tr>
+        </table>
+
+        <ul>
+          <li><strong>Flexible / schema-less</strong> — good when entities have varying or evolving shapes.</li>
+          <li><strong>Horizontal scaling is native</strong> — most are built partition-first (consistent hashing across nodes).</li>
+          <li><strong>Weaker transactional guarantees</strong> — typically no multi-document/multi-row ACID transactions (though modern MongoDB and DynamoDB have added limited support).</li>
+          <li><strong>Usually AP</strong> in CAP terms — tunable consistency (e.g. Cassandra's quorum reads/writes) rather than strict by default.</li>
+        </ul>
+
+        <h2>Decision framework</h2>
+        <div class="callout interview">
+          <div class="callout-title">Ask these questions in the interview</div>
+          1. Do I need multi-row transactions (e.g. debit one account, credit another, atomically)? → SQL.<br>
+          2. Is my data naturally tabular/relational with lots of joins? → SQL.<br>
+          3. Is my write volume enormous and mostly append-only / time-ordered (metrics, logs, events)? → Wide-column NoSQL.<br>
+          4. Does each record look different and evolve independently (user-generated content, catalogs)? → Document NoSQL.<br>
+          5. Am I mostly doing simple key → value lookups at very high QPS with low latency? → Key-value store.<br>
+          6. Is the core query "find things N hops away in a relationship graph"? → Graph DB.
+        </div>
+
+        <h2>Worked examples from common interview questions</h2>
+        <table>
+          <tr><th>System</th><th>Likely choice</th><th>Reasoning</th></tr>
+          <tr><td>URL Shortener</td><td>Key-value (or SQL for small scale)</td><td>Simple short_code → long_url lookup, no relations needed</td></tr>
+          <tr><td>Instagram feed / posts</td><td>SQL for user/relations + NoSQL/cache for feed</td><td>Follow graph and metadata are relational; feed generation needs fast fan-out reads, often cached</td></tr>
+          <tr><td>Uber trip data</td><td>SQL (trip, payment) + wide-column (location pings)</td><td>Payments need ACID; location pings are extremely high-volume time-series writes</td></tr>
+          <tr><td>WhatsApp messages</td><td>Wide-column / document (e.g. Cassandra-like)</td><td>Massive write throughput, mostly accessed by conversation_id + time range, no complex joins</td></tr>
+          <tr><td>E-commerce inventory</td><td>SQL</td><td>Stock decrement must be atomic and consistent to avoid overselling</td></tr>
+        </table>
+
+        <div class="callout">
+          <div class="callout-title">It's not either/or</div>
+          Real systems are almost always <strong>polyglot persistence</strong>: SQL for the transactional core (users, orders, payments), a document/wide-column store for high-volume or flexible data, Redis for caching/sessions, Elasticsearch for search, and a graph DB for recommendations. In an interview, naming the right store per data type is a stronger signal than picking one database for everything.
+        </div>
+
+        <h2>NewSQL — the middle ground</h2>
+        <p>Systems like <strong>Google Spanner</strong>, <strong>CockroachDB</strong>, and <strong>TiDB</strong> aim to give SQL semantics (schema, joins, ACID transactions) with horizontal scalability and strong consistency across regions, using synchronized clocks (TrueTime) or consensus protocols (Raft) under the hood. Worth name-dropping when the interviewer pushes on "but what if you need both scale AND transactions?"</p>
+      </article>
+
+      <div class="page-nav">
+        <a href="02-cap-theorem.html"><span class="dir">Previous</span>CAP Theorem & Consistency</a>
+        <a class="next" href="04-estimation.html"><span class="dir">Next</span>Back-of-Envelope Estimation →</a>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

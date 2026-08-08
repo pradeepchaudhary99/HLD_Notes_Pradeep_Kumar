@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAP Theorem & Consistency Models — Class Notes</title>
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <a href="../../index.html" class="sidebar-brand">📘 Class Notes</a>
+    <div class="sidebar-tagline">System Design & Backend Engineering</div>
+    <nav>
+      <div class="week-block">
+        <div class="week-title">Course</div>
+        <ul>
+          <li><a href="../../index.html">Home</a></li>
+          <li><a href="../index.html">System Design — All Weeks</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 1 — HLD Foundations</div>
+        <ul>
+          <li><a href="01-hld-approach.html">Approaching an HLD Interview</a></li>
+          <li><a href="02-cap-theorem.html" class="active">CAP Theorem & Consistency</a></li>
+          <li><a href="03-sql-vs-nosql.html">SQL vs NoSQL</a></li>
+          <li><a href="04-estimation.html">Back-of-Envelope Estimation</a></li>
+          <li><a href="05-api-data-model.html">API Design & Data Model</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 2 — Core Infra Building Blocks</div>
+        <ul>
+          <li><a href="../week-2/01-networking-load-balancers.html">Load Balancers & Networking</a></li>
+          <li><a href="../week-2/02-cdn-dns-reverse-proxy.html">CDN, DNS & Reverse Proxies</a></li>
+          <li><a href="../week-2/03-caching-strategies.html">Caching Strategies</a></li>
+          <li><a href="../week-2/04-redis-deep-dive.html">Redis Deep Dive</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="sidebar-footer">Updated as classes progress.</div>
+  </aside>
+
+  <main class="content">
+    <div class="content-inner">
+      <div class="breadcrumb"><a href="../../index.html">Home</a> / <a href="../index.html">System Design</a> / Week 1</div>
+      <div class="page-header"><h1>CAP Theorem & Consistency Models</h1></div>
+      <div class="page-meta"><span class="tag">Week 1</span><span class="tag green">Theory</span></div>
+
+      <article>
+        <h2>CAP theorem</h2>
+        <p>In a <strong>distributed</strong> system, when a network partition occurs, you must choose between <strong>Consistency</strong> and <strong>Availability</strong>. You cannot have all three of Consistency, Availability, and Partition tolerance simultaneously — and in practice, partitions <em>will</em> happen, so the real choice is <strong>C vs A during a partition</strong>.</p>
+
+        <div class="grid-2">
+          <div class="card">
+            <h4>Consistency (C)</h4>
+            <p>Every read receives the most recent write or an error. All nodes see the same data at the same time.</p>
+          </div>
+          <div class="card">
+            <h4>Availability (A)</h4>
+            <p>Every request receives a (non-error) response, without the guarantee that it contains the most recent write.</p>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Partition tolerance (P)</h4>
+            <p>The system continues to operate despite an arbitrary number of messages being dropped or delayed between nodes by the network.</p>
+          </div>
+          <div class="card">
+            <h4>Why P isn't optional</h4>
+            <p>Networks fail. In any real distributed system, you must tolerate partitions — so CAP is really "when a partition happens, pick C or A."</p>
+          </div>
+        </div>
+
+        <table>
+          <tr><th>Choice</th><th>Behavior during partition</th><th>Examples</th></tr>
+          <tr><td><strong>CP</strong></td><td>Reject/block requests on the minority side to guarantee consistency</td><td>MongoDB (default), HBase, Zookeeper, etcd, most RDBMS with sync replication</td></tr>
+          <tr><td><strong>AP</strong></td><td>Keep serving reads/writes on both sides; reconcile later (risk of stale/conflicting data)</td><td>Cassandra, DynamoDB, Riak, CouchDB</td></tr>
+        </table>
+
+        <div class="callout interview">
+          <div class="callout-title">Interview framing</div>
+          Don't just say "I'll use Cassandra because it's AP." Tie it to the requirement: "Our feed can tolerate a follower seeing a slightly stale like-count for a few seconds, but the checkout service cannot double-charge a card — so I'd pick AP for the feed and CP for payments."
+        </div>
+
+        <h2>PACELC — the more complete picture</h2>
+        <p>CAP only describes behavior <em>during a partition</em>. PACELC extends it: <strong>if Partitioned</strong>, choose <strong>A</strong>vailability or <strong>C</strong>onsistency; <strong>Else</strong> (normal operation, no partition), choose <strong>L</strong>atency or <strong>C</strong>onsistency. This matters because even without a partition, synchronous replication for strong consistency adds latency.</p>
+        <ul>
+          <li><strong>PA/EL</strong> systems (e.g. Cassandra, DynamoDB): favor availability during a partition and low latency normally, at the cost of consistency in both cases.</li>
+          <li><strong>PC/EC</strong> systems (e.g. traditional RDBMS with synchronous replication, Spanner-like systems): favor consistency always, accepting higher latency and reduced availability during partitions.</li>
+        </ul>
+
+        <h2>Consistency models (from strongest to weakest)</h2>
+
+        <h3>Strong / Strict consistency</h3>
+        <p>Every read reflects the latest committed write, and all clients agree on ordering as if all operations happened on a single machine with no delay. Extremely expensive — usually requires consensus (Paxos/Raft) or a single writer.</p>
+
+        <h3>Linearizability</h3>
+        <p>A specific, well-defined form of strong consistency: every operation appears to take effect instantaneously at some point between its start and end, and once a write completes, every subsequent read (by any client) sees that write or a later one. It's "real-time" consistent — no client can ever observe a value going "backwards." Systems like <strong>etcd</strong>, <strong>Zookeeper</strong>, and <strong>Spanner</strong> (via TrueTime) provide this. It's expensive: typically requires consensus on every write and coordination across replicas.</p>
+
+        <h3>Sequential consistency</h3>
+        <p>All operations appear in <em>some</em> global order that's consistent with the order each individual client issued its own operations — but that order doesn't have to match real/wall-clock time. Weaker (and cheaper) than linearizability, still strong enough for many distributed algorithms.</p>
+
+        <h3>Causal consistency</h3>
+        <p>Operations that are causally related (e.g. a comment that replies to a post) are seen by everyone in the same order; unrelated (concurrent) operations can be seen in different orders by different clients. Common in collaborative and social apps — you never see a reply before the comment it replies to.</p>
+
+        <h3>Eventual consistency</h3>
+        <p>If no new writes occur, all replicas will <em>eventually</em> converge to the same value — but there's no bound promised on how long "eventually" takes, and reads in the meantime can return stale or even out-of-order data. Cheapest, most available, most scalable. Used by DNS, Cassandra, DynamoDB, S3 (historically), CDN caches.</p>
+
+        <div class="callout">
+          <div class="callout-title">Read-your-writes & monotonic reads</div>
+          Two practical eventual-consistency refinements interviewers love to probe: <strong>read-your-own-writes</strong> (a user always sees their own update immediately, even if others don't yet) and <strong>monotonic reads</strong> (once you've seen a value, you never see an older one on subsequent reads). Both are achievable with sticky sessions or version vectors without paying for full strong consistency.
+        </div>
+
+        <h2>Picking a model in an interview</h2>
+        <table>
+          <tr><th>Use case</th><th>Model</th><th>Why</th></tr>
+          <tr><td>Bank transfer / payments</td><td>Strong / Linearizable</td><td>Double-spending or lost money is unacceptable</td></tr>
+          <tr><td>Inventory count at checkout</td><td>Strong (at least for the decrement)</td><td>Overselling a limited-stock item is a real business cost</td></tr>
+          <tr><td>Like / view counters</td><td>Eventual</td><td>Being off by a few for a few seconds is invisible to users</td></tr>
+          <tr><td>Social feed ordering</td><td>Causal</td><td>Replies must appear after the post they reply to</td></tr>
+          <tr><td>DNS records, CDN cache</td><td>Eventual</td><td>Availability and latency matter far more than instant propagation</td></tr>
+        </table>
+      </article>
+
+      <div class="page-nav">
+        <a href="01-hld-approach.html"><span class="dir">Previous</span>Approaching an HLD Interview</a>
+        <a class="next" href="03-sql-vs-nosql.html"><span class="dir">Next</span>SQL vs NoSQL →</a>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

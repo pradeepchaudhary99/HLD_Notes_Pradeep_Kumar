@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Approaching an HLD Interview — Class Notes</title>
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <a href="../../index.html" class="sidebar-brand">📘 Class Notes</a>
+    <div class="sidebar-tagline">System Design & Backend Engineering</div>
+    <nav>
+      <div class="week-block">
+        <div class="week-title">Course</div>
+        <ul>
+          <li><a href="../../index.html">Home</a></li>
+          <li><a href="../index.html">System Design — All Weeks</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 1 — HLD Foundations</div>
+        <ul>
+          <li><a href="01-hld-approach.html" class="active">Approaching an HLD Interview</a></li>
+          <li><a href="02-cap-theorem.html">CAP Theorem & Consistency</a></li>
+          <li><a href="03-sql-vs-nosql.html">SQL vs NoSQL</a></li>
+          <li><a href="04-estimation.html">Back-of-Envelope Estimation</a></li>
+          <li><a href="05-api-data-model.html">API Design & Data Model</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 2 — Core Infra Building Blocks</div>
+        <ul>
+          <li><a href="../week-2/01-networking-load-balancers.html">Load Balancers & Networking</a></li>
+          <li><a href="../week-2/02-cdn-dns-reverse-proxy.html">CDN, DNS & Reverse Proxies</a></li>
+          <li><a href="../week-2/03-caching-strategies.html">Caching Strategies</a></li>
+          <li><a href="../week-2/04-redis-deep-dive.html">Redis Deep Dive</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="sidebar-footer">Updated as classes progress.</div>
+  </aside>
+
+  <main class="content">
+    <div class="content-inner">
+      <div class="breadcrumb"><a href="../../index.html">Home</a> / <a href="../index.html">System Design</a> / Week 1</div>
+      <div class="page-header"><h1>Approaching an HLD Interview</h1></div>
+      <div class="page-meta"><span class="tag">Week 1</span><span class="tag green">Framework</span></div>
+
+      <article>
+        <p>A High-Level Design (HLD) interview isn't testing whether you know a specific "correct" architecture — it's testing whether you can take an ambiguous problem, scope it sensibly, and reason about trade-offs out loud. Interviewers at top product companies (Google, Amazon, Meta, Uber, etc.) are grading your <strong>process</strong> at least as much as your final diagram. This note gives you a repeatable framework you can apply to almost any "Design X" question — URL shortener, Instagram, WhatsApp, Uber, rate limiter, and so on.</p>
+
+        <div class="callout interview">
+          <div class="callout-title">Golden rule</div>
+          Never jump straight to boxes and arrows. The candidates who fail HLD rounds almost always fail because they start designing before they've agreed with the interviewer on <em>what</em> they're designing.
+        </div>
+
+        <h2>The 6-step framework</h2>
+
+        <h3>1. Clarify requirements (5–7 minutes)</h3>
+        <p>Split requirements into two buckets and say them out loud:</p>
+        <ul>
+          <li><strong>Functional requirements</strong> — what the system does. E.g. for a URL shortener: "users can shorten a URL, custom aliases are optional, shortened links redirect to the original, links can expire."</li>
+          <li><strong>Non-functional requirements (NFRs)</strong> — the qualities the system must have: availability, latency, consistency, durability, scalability. These usually matter more for the design than the functional list.</li>
+        </ul>
+        <p>Ask scoping questions to narrow an intentionally vague prompt:</p>
+        <ul>
+          <li>What's the scale — number of users, requests/sec, data volume? (If not given, estimate it yourself in step 2.)</li>
+          <li>Read-heavy or write-heavy?</li>
+          <li>Do we need strong consistency anywhere, or is eventual consistency acceptable?</li>
+          <li>Is this a single-region or global system?</li>
+          <li>What's explicitly out of scope? (e.g., "let's skip analytics/ads for now and focus on the core read/write path")</li>
+        </ul>
+
+        <h3>2. Back-of-the-envelope estimation (5 minutes)</h3>
+        <p>Convert requirements into numbers: QPS (read and write separately), storage growth per day/year, bandwidth, and peak-to-average ratios. This directly drives decisions later — e.g. 50K reads/sec tells you that you need a cache and probably read replicas; 500 writes/sec tells you a single relational primary might be fine for years. See the <a href="04-estimation.html">estimation note</a> for the actual math.</p>
+
+        <h3>3. Define the API / interface (3–5 minutes)</h3>
+        <p>Write 3–6 core endpoints with request/response shape. This forces you to nail down the data model early and gives the interviewer a concrete contract to interrogate. See the <a href="05-api-data-model.html">API design note</a>.</p>
+
+        <h3>4. High-level architecture (10–15 minutes)</h3>
+        <p>Now draw boxes. Start with the simplest thing that could work — client → load balancer → application servers → database — then layer in complexity only to solve a specific requirement you already identified:</p>
+        <ul>
+          <li>Add a <strong>cache</strong> because reads are 100:1 vs writes.</li>
+          <li>Add a <strong>message queue</strong> because writes need to be decoupled from slow downstream work (e.g. sending notifications).</li>
+          <li>Add <strong>read replicas / sharding</strong> because a single DB node can't hold or serve the estimated volume.</li>
+          <li>Add a <strong>CDN</strong> because you're serving static/media content globally.</li>
+        </ul>
+        <p>Narrate every box: what it does, why it's there, and what would break without it. This is the highest-signal part of the interview.</p>
+
+        <h3>5. Deep dive into 1–2 components (10–15 minutes)</h3>
+        <p>The interviewer will usually steer you here, but be ready to propose it yourself: "I'd like to go deeper into how we generate unique short codes at scale" or "let's dig into how we fan out a tweet to followers." This is where you show real depth — concurrency, failure handling, data partitioning, specific algorithms (e.g. consistent hashing, base62 encoding, leader election).</p>
+
+        <h3>6. Address bottlenecks, failure modes, and trade-offs (5–10 minutes)</h3>
+        <p>Proactively call out: single points of failure, hot partitions/celebrity problem, cache stampedes, retry storms, and how you'd monitor and roll out safely. Every design decision should come with a trade-off you considered and rejected — that's what "senior" signal looks like.</p>
+
+        <h2>Time budget for a 45-minute interview</h2>
+        <table>
+          <tr><th>Phase</th><th>Time</th></tr>
+          <tr><td>Requirements & scoping</td><td>5–7 min</td></tr>
+          <tr><td>Estimation</td><td>5 min</td></tr>
+          <tr><td>API & data model</td><td>5 min</td></tr>
+          <tr><td>High-level architecture</td><td>12–15 min</td></tr>
+          <tr><td>Deep dive</td><td>10–15 min</td></tr>
+          <tr><td>Wrap-up / trade-offs / Q&A</td><td>5 min</td></tr>
+        </table>
+
+        <h2>Common mistakes</h2>
+        <ul>
+          <li><strong>Silence.</strong> Think out loud, always. An interviewer can't grade a thought they can't hear.</li>
+          <li><strong>Over-engineering early.</strong> Don't reach for Kafka + Cassandra + Kubernetes for a system doing 10 QPS. Justify every component with a number or requirement.</li>
+          <li><strong>Ignoring the interviewer's hints.</strong> If they ask "what happens if this node dies?", that's a strong signal to talk about replication/failover right now, not later.</li>
+          <li><strong>No opinions.</strong> When there are multiple valid options (SQL vs NoSQL, sync vs async), pick one, state your reasoning, and mention the alternative you rejected and why.</li>
+          <li><strong>Skipping numbers.</strong> "It should scale well" is not an answer. "At 5K writes/sec we'll need to shard by user_id once a single Postgres primary saturates around ~10-15K TPS" is.</li>
+        </ul>
+
+        <div class="callout">
+          <div class="callout-title">How to practice</div>
+          Pick a well-known product every week (this is basically the syllabus of this course), give yourself 45 minutes, and force yourself through all 6 steps out loud — even alone. The framework becomes reflexive after 8–10 reps.
+        </div>
+      </article>
+
+      <div class="page-nav">
+        <a href="../index.html"><span class="dir">Back</span>Week 1 overview</a>
+        <a class="next" href="02-cap-theorem.html"><span class="dir">Next</span>CAP Theorem & Consistency →</a>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>
