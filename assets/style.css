@@ -337,6 +337,30 @@ th {
 .topic-list .topic-desc { display: block; font-size: 0.82rem; color: var(--text-faint); margin-top: 4px; font-weight: 400; }
 .topic-list .topic-title { font-weight: 600; }
 
+/* ---------- Diagrams / illustrations ---------- */
+.diagram {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px 16px;
+  margin: 0 0 24px;
+  overflow-x: auto;
+}
+
+.diagram svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+
+.diagram-caption {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--text-faint);
+  margin-top: 10px;
+  letter-spacing: 0.01em;
+}
+
+.diagram-label {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
+}
+
 @media (max-width: 860px) {
   .app { flex-direction: column; }
   .sidebar { position: relative; width: 100%; height: auto; }
