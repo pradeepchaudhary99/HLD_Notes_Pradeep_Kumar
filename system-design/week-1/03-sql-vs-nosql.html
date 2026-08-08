@@ -79,6 +79,57 @@
         </ul>
 
         <h2>Decision framework</h2>
+
+        <div class="diagram">
+          <svg viewBox="0 0 720 380" xmlns="http://www.w3.org/2000/svg" class="diagram-label">
+            <defs>
+              <marker id="arrowd" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="#676e80"/>
+              </marker>
+            </defs>
+            <!-- root -->
+            <rect x="290" y="10" width="140" height="44" rx="8" fill="#161922" stroke="#e7e9ee" stroke-width="2"/>
+            <text x="360" y="37" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">Need multi-row</text>
+            <text x="360" y="0" text-anchor="middle" fill="transparent" font-size="1"> </text>
+            <text x="360" y="30" text-anchor="middle" fill="#e7e9ee" font-size="11" font-weight="600">ACID transactions?</text>
+
+            <line x1="330" y1="54" x2="150" y2="100" stroke="#676e80" stroke-width="1.6" marker-end="url(#arrowd)"/>
+            <text x="220" y="80" fill="#34d399" font-size="11" font-weight="600">yes</text>
+            <line x1="400" y1="54" x2="530" y2="100" stroke="#676e80" stroke-width="1.6" marker-end="url(#arrowd)"/>
+            <text x="470" y="80" fill="#ef5b5b" font-size="11" font-weight="600">no</text>
+
+            <rect x="70" y="100" width="160" height="42" rx="8" fill="#5b9dff18" stroke="#5b9dff" stroke-width="2"/>
+            <text x="150" y="126" text-anchor="middle" fill="#5b9dff" font-size="12" font-weight="700">SQL (relational)</text>
+
+            <rect x="450" y="100" width="160" height="42" rx="8" fill="#161922" stroke="#e7e9ee" stroke-width="2"/>
+            <text x="530" y="120" text-anchor="middle" fill="#e7e9ee" font-size="11" font-weight="600">What's the access</text>
+            <text x="530" y="134" text-anchor="middle" fill="#e7e9ee" font-size="11" font-weight="600">pattern?</text>
+
+            <line x1="470" y1="142" x2="330" y2="200" stroke="#676e80" stroke-width="1.6" marker-end="url(#arrowd)"/>
+            <text x="380" y="180" fill="#9aa1b1" font-size="10">simple ID lookup</text>
+            <rect x="220" y="200" width="150" height="40" rx="8" fill="#34d39918" stroke="#34d399" stroke-width="2"/>
+            <text x="295" y="225" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">Key-Value store</text>
+
+            <line x1="530" y1="142" x2="530" y2="200" stroke="#676e80" stroke-width="1.6" marker-end="url(#arrowd)"/>
+            <text x="540" y="175" fill="#9aa1b1" font-size="10">flexible / nested</text>
+            <rect x="450" y="200" width="160" height="40" rx="8" fill="#f5a62318" stroke="#f5a623" stroke-width="2"/>
+            <text x="530" y="225" text-anchor="middle" fill="#f5a623" font-size="12" font-weight="700">Document store</text>
+
+            <line x1="590" y1="142" x2="670" y2="200" stroke="#676e80" stroke-width="1.6" marker-end="url(#arrowd)"/>
+            <text x="655" y="175" fill="#9aa1b1" font-size="10" text-anchor="end">huge write volume</text>
+            <rect x="600" y="200" width="110" height="46" rx="8" fill="#ef5b5b18" stroke="#ef5b5b" stroke-width="2"/>
+            <text x="655" y="220" text-anchor="middle" fill="#ef5b5b" font-size="11" font-weight="700">Wide-column</text>
+            <text x="655" y="234" text-anchor="middle" fill="#ef5b5b" font-size="10">(time-series)</text>
+
+            <line x1="470" y1="142" x2="450" y2="260" stroke="#676e80" stroke-width="1.6" marker-end="url(#arrowd)" stroke-dasharray="4 3"/>
+            <text x="410" y="250" fill="#9aa1b1" font-size="10">relationship traversal</text>
+            <rect x="380" y="260" width="150" height="40" rx="8" fill="#5b9dff18" stroke="#5b9dff" stroke-width="2" stroke-dasharray="4 3"/>
+            <text x="455" y="285" text-anchor="middle" fill="#5b9dff" font-size="12" font-weight="700">Graph database</text>
+
+            <text x="360" y="345" text-anchor="middle" fill="#676e80" font-size="11">Real systems combine several of these — see "polyglot persistence" below.</text>
+          </svg>
+          <div class="diagram-caption">Fig 1. A quick decision path from requirement to store type.</div>
+        </div>
         <div class="callout interview">
           <div class="callout-title">Ask these questions in the interview</div>
           1. Do I need multi-row transactions (e.g. debit one account, credit another, atomically)? → SQL.<br>

@@ -67,6 +67,39 @@
           <strong>REST</strong>: simple, cacheable, great for public/external APIs. <strong>gRPC</strong>: binary (protobuf), fast, strongly typed, ideal for internal service-to-service calls with strict schemas and streaming. <strong>GraphQL</strong>: client decides exactly what fields it needs in one round trip — great for complex, nested UI data (mobile apps hitting many entity types) but adds complexity around caching and query cost control.
         </div>
 
+        <div class="diagram">
+          <svg viewBox="0 0 640 170" xmlns="http://www.w3.org/2000/svg" class="diagram-label">
+            <defs>
+              <marker id="arrowr" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="#5b9dff"/>
+              </marker>
+            </defs>
+            <rect x="20" y="60" width="120" height="46" rx="8" fill="#161922" stroke="#5b9dff" stroke-width="2"/>
+            <text x="80" y="88" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">Client</text>
+
+            <rect x="260" y="60" width="120" height="46" rx="8" fill="#161922" stroke="#5b9dff" stroke-width="2"/>
+            <text x="320" y="88" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">API layer</text>
+
+            <rect x="500" y="60" width="120" height="46" rx="8" fill="#161922" stroke="#34d399" stroke-width="2"/>
+            <text x="560" y="88" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">Data store</text>
+
+            <line x1="140" y1="72" x2="256" y2="72" stroke="#5b9dff" stroke-width="1.8" marker-end="url(#arrowr)"/>
+            <text x="198" y="64" text-anchor="middle" fill="#9aa1b1" font-size="10">POST /v1/urls</text>
+
+            <line x1="380" y1="72" x2="496" y2="72" stroke="#5b9dff" stroke-width="1.8" marker-end="url(#arrowr)"/>
+            <text x="438" y="64" text-anchor="middle" fill="#9aa1b1" font-size="10">INSERT</text>
+
+            <line x1="496" y1="94" x2="380" y2="94" stroke="#34d399" stroke-width="1.8" marker-end="url(#arrowr)"/>
+            <text x="438" y="112" text-anchor="middle" fill="#9aa1b1" font-size="10">row saved</text>
+
+            <line x1="256" y1="94" x2="140" y2="94" stroke="#34d399" stroke-width="1.8" marker-end="url(#arrowr)"/>
+            <text x="198" y="112" text-anchor="middle" fill="#9aa1b1" font-size="10">201 { short_code }</text>
+
+            <text x="320" y="145" text-anchor="middle" fill="#676e80" font-size="11">Idempotency-Key header on the request makes a client retry safe — same key ⇒ same result, no duplicate insert.</text>
+          </svg>
+          <div class="diagram-caption">Fig 1. Request/response contract — define this exchange before drawing any infrastructure.</div>
+        </div>
+
         <h2>Worked example: URL Shortener API</h2>
         <pre><code>POST /v1/urls
 Body: { "long_url": "https://example.com/very/long/path", "custom_alias": "optional", "ttl_days": 365 }
@@ -87,6 +120,34 @@ Response 204: no content
 
         <h3>1. Entity-relationship sketch</h3>
         <p>For a Twitter-like feed: <code>User</code> (1) —follows→ (many) <code>User</code>; <code>User</code> (1) —posts→ (many) <code>Tweet</code>; <code>Tweet</code> (1) —has→ (many) <code>Like</code>, <code>Reply</code>. Draw this before touching SQL/NoSQL — it's storage-agnostic.</p>
+
+        <div class="diagram">
+          <svg viewBox="0 0 600 220" xmlns="http://www.w3.org/2000/svg" class="diagram-label">
+            <rect x="30" y="20" width="130" height="42" rx="8" fill="#5b9dff18" stroke="#5b9dff" stroke-width="2"/>
+            <text x="95" y="46" text-anchor="middle" fill="#5b9dff" font-size="12" font-weight="700">User</text>
+
+            <path d="M85,20 C 40,-5 5,45 30,55" fill="none" stroke="#676e80" stroke-width="1.6"/>
+            <text x="10" y="10" fill="#676e80" font-size="10">follows (M:N)</text>
+
+            <rect x="260" y="20" width="130" height="42" rx="8" fill="#34d39918" stroke="#34d399" stroke-width="2"/>
+            <text x="325" y="46" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">Tweet</text>
+            <line x1="160" y1="41" x2="256" y2="41" stroke="#676e80" stroke-width="1.6"/>
+            <text x="210" y="33" text-anchor="middle" fill="#676e80" font-size="10">1 : N posts</text>
+
+            <rect x="470" y="0" width="120" height="42" rx="8" fill="#f5a62318" stroke="#f5a623" stroke-width="2"/>
+            <text x="530" y="26" text-anchor="middle" fill="#f5a623" font-size="12" font-weight="700">Like</text>
+            <line x1="390" y1="30" x2="466" y2="21" stroke="#676e80" stroke-width="1.6"/>
+            <text x="430" y="15" text-anchor="middle" fill="#676e80" font-size="10">1 : N</text>
+
+            <rect x="470" y="60" width="120" height="42" rx="8" fill="#ef5b5b18" stroke="#ef5b5b" stroke-width="2"/>
+            <text x="530" y="86" text-anchor="middle" fill="#ef5b5b" font-size="12" font-weight="700">Reply</text>
+            <line x1="390" y1="52" x2="466" y2="81" stroke="#676e80" stroke-width="1.6"/>
+            <text x="430" y="80" text-anchor="middle" fill="#676e80" font-size="10">1 : N</text>
+
+            <text x="300" y="150" text-anchor="middle" fill="#676e80" font-size="11">Storage-agnostic sketch first — SQL vs. NoSQL is a physical-schema decision that comes after this.</text>
+          </svg>
+          <div class="diagram-caption">Fig 2. Entity-relationship sketch for a Twitter-like feed.</div>
+        </div>
 
         <h3>2. Schema, driven by queries</h3>
         <p>In NoSQL/wide-column design especially, <strong>model for your read queries first</strong>, not for normalization. Ask "what's the most common query?" and design the partition/sort key to answer it in one lookup.</p>

@@ -58,6 +58,64 @@
 
         <h2>The 6-step framework</h2>
 
+        <div class="diagram">
+          <svg viewBox="0 0 760 220" xmlns="http://www.w3.org/2000/svg" class="diagram-label">
+            <defs>
+              <marker id="arrow1" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="#5b9dff"/>
+              </marker>
+            </defs>
+            <line x1="40" y1="70" x2="720" y2="70" stroke="#262a35" stroke-width="2"/>
+            <!-- steps -->
+            <g font-family="inherit">
+              <!-- step boxes -->
+              <g>
+                <circle cx="60" cy="70" r="22" fill="#5b9dff22" stroke="#5b9dff" stroke-width="2"/>
+                <text x="60" y="76" text-anchor="middle" fill="#5b9dff" font-size="18" font-weight="700">1</text>
+                <text x="60" y="115" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">Clarify</text>
+                <text x="60" y="130" text-anchor="middle" fill="#9aa1b1" font-size="11">requirements</text>
+              </g>
+              <g>
+                <circle cx="180" cy="70" r="22" fill="#5b9dff22" stroke="#5b9dff" stroke-width="2"/>
+                <text x="180" y="76" text-anchor="middle" fill="#5b9dff" font-size="18" font-weight="700">2</text>
+                <text x="180" y="115" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">Estimate</text>
+                <text x="180" y="130" text-anchor="middle" fill="#9aa1b1" font-size="11">scale (QPS)</text>
+              </g>
+              <g>
+                <circle cx="300" cy="70" r="22" fill="#5b9dff22" stroke="#5b9dff" stroke-width="2"/>
+                <text x="300" y="76" text-anchor="middle" fill="#5b9dff" font-size="18" font-weight="700">3</text>
+                <text x="300" y="115" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">Define</text>
+                <text x="300" y="130" text-anchor="middle" fill="#9aa1b1" font-size="11">API &amp; schema</text>
+              </g>
+              <g>
+                <circle cx="440" cy="70" r="22" fill="#34d39922" stroke="#34d399" stroke-width="2"/>
+                <text x="440" y="76" text-anchor="middle" fill="#34d399" font-size="18" font-weight="700">4</text>
+                <text x="440" y="115" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">High-level</text>
+                <text x="440" y="130" text-anchor="middle" fill="#9aa1b1" font-size="11">architecture</text>
+              </g>
+              <g>
+                <circle cx="580" cy="70" r="22" fill="#34d39922" stroke="#34d399" stroke-width="2"/>
+                <text x="580" y="76" text-anchor="middle" fill="#34d399" font-size="18" font-weight="700">5</text>
+                <text x="580" y="115" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">Deep dive</text>
+                <text x="580" y="130" text-anchor="middle" fill="#9aa1b1" font-size="11">1-2 components</text>
+              </g>
+              <g>
+                <circle cx="700" cy="70" r="22" fill="#f5a62322" stroke="#f5a623" stroke-width="2"/>
+                <text x="700" y="76" text-anchor="middle" fill="#f5a623" font-size="18" font-weight="700">6</text>
+                <text x="700" y="115" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">Trade-offs</text>
+                <text x="700" y="130" text-anchor="middle" fill="#9aa1b1" font-size="11">&amp; bottlenecks</text>
+              </g>
+            </g>
+            <line x1="86" y1="70" x2="154" y2="70" stroke="#5b9dff" stroke-width="2" marker-end="url(#arrow1)"/>
+            <line x1="206" y1="70" x2="274" y2="70" stroke="#5b9dff" stroke-width="2" marker-end="url(#arrow1)"/>
+            <line x1="326" y1="70" x2="414" y2="70" stroke="#5b9dff" stroke-width="2" marker-end="url(#arrow1)"/>
+            <line x1="466" y1="70" x2="554" y2="70" stroke="#34d399" stroke-width="2" marker-end="url(#arrow1)"/>
+            <line x1="606" y1="70" x2="674" y2="70" stroke="#34d399" stroke-width="2" marker-end="url(#arrow1)"/>
+            <text x="380" y="185" text-anchor="middle" fill="#676e80" font-size="12">≈ 45 minute interview · never skip a step, but budget time ruthlessly</text>
+          </svg>
+          <div class="diagram-caption">Fig 1. The 6-step HLD framework — walk it in order, every time.</div>
+        </div>
+
         <h3>1. Clarify requirements (5–7 minutes)</h3>
         <p>Split requirements into two buckets and say them out loud:</p>
         <ul>
@@ -88,6 +146,60 @@
           <li>Add a <strong>CDN</strong> because you're serving static/media content globally.</li>
         </ul>
         <p>Narrate every box: what it does, why it's there, and what would break without it. This is the highest-signal part of the interview.</p>
+
+        <div class="diagram">
+          <svg viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg" class="diagram-label">
+            <defs>
+              <marker id="arrow2" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="#9aa1b1"/>
+              </marker>
+            </defs>
+            <!-- baseline chain -->
+            <rect x="20" y="110" width="90" height="46" rx="8" fill="#161922" stroke="#5b9dff" stroke-width="2"/>
+            <text x="65" y="138" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">Client</text>
+
+            <rect x="150" y="110" width="110" height="46" rx="8" fill="#161922" stroke="#5b9dff" stroke-width="2"/>
+            <text x="205" y="132" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">Load</text>
+            <text x="205" y="146" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">balancer</text>
+
+            <rect x="300" y="110" width="120" height="46" rx="8" fill="#161922" stroke="#5b9dff" stroke-width="2"/>
+            <text x="360" y="132" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">App</text>
+            <text x="360" y="146" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">servers</text>
+
+            <rect x="460" y="110" width="100" height="46" rx="8" fill="#161922" stroke="#5b9dff" stroke-width="2"/>
+            <text x="510" y="138" text-anchor="middle" fill="#e7e9ee" font-size="12" font-weight="600">Database</text>
+
+            <line x1="110" y1="133" x2="146" y2="133" stroke="#9aa1b1" stroke-width="2" marker-end="url(#arrow2)"/>
+            <line x1="260" y1="133" x2="296" y2="133" stroke="#9aa1b1" stroke-width="2" marker-end="url(#arrow2)"/>
+            <line x1="420" y1="133" x2="456" y2="133" stroke="#9aa1b1" stroke-width="2" marker-end="url(#arrow2)"/>
+
+            <text x="65" y="100" text-anchor="middle" fill="#676e80" font-size="10">1. START HERE</text>
+
+            <!-- add-on layer, dashed, above -->
+            <rect x="300" y="30" width="120" height="42" rx="8" fill="#34d39918" stroke="#34d399" stroke-width="1.6" stroke-dasharray="4 3"/>
+            <text x="360" y="56" text-anchor="middle" fill="#34d399" font-size="12" font-weight="600">Cache</text>
+            <line x1="360" y1="72" x2="360" y2="108" stroke="#34d399" stroke-width="1.6" stroke-dasharray="4 3"/>
+
+            <rect x="450" y="30" width="130" height="42" rx="8" fill="#34d39918" stroke="#34d399" stroke-width="1.6" stroke-dasharray="4 3"/>
+            <text x="515" y="47" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600">Message queue</text>
+            <text x="515" y="60" text-anchor="middle" fill="#34d399" font-size="10">(async writes)</text>
+            <line x1="480" y1="72" x2="420" y2="108" stroke="#34d399" stroke-width="1.6" stroke-dasharray="4 3"/>
+
+            <rect x="150" y="30" width="110" height="42" rx="8" fill="#34d39918" stroke="#34d399" stroke-width="1.6" stroke-dasharray="4 3"/>
+            <text x="205" y="55" text-anchor="middle" fill="#34d399" font-size="12" font-weight="600">CDN</text>
+            <line x1="205" y1="72" x2="205" y2="108" stroke="#34d399" stroke-width="1.6" stroke-dasharray="4 3"/>
+
+            <rect x="565" y="110" width="115" height="46" rx="8" fill="#34d39918" stroke="#34d399" stroke-width="1.6" stroke-dasharray="4 3"/>
+            <text x="622" y="128" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600">Read</text>
+            <text x="622" y="141" text-anchor="middle" fill="#34d399" font-size="11" font-weight="600">replicas</text>
+            <line x1="560" y1="133" x2="561" y2="133" stroke="#34d399" stroke-width="1.6"/>
+            <line x1="560" y1="133" x2="561" y2="133"/>
+            <line x1="560" y1="133" x2="563" y2="133" stroke="#34d399" stroke-width="1.6" stroke-dasharray="4 3"/>
+
+            <text x="360" y="215" text-anchor="middle" fill="#676e80" font-size="10">2. LAYER IN ONLY WHAT A REQUIREMENT JUSTIFIES</text>
+          </svg>
+          <div class="diagram-caption">Fig 2. Start with the simplest chain, then add each dashed component only because a number or requirement demanded it.</div>
+        </div>
 
         <h3>5. Deep dive into 1–2 components (10–15 minutes)</h3>
         <p>The interviewer will usually steer you here, but be ready to propose it yourself: "I'd like to go deeper into how we generate unique short codes at scale" or "let's dig into how we fan out a tweet to followers." This is where you show real depth — concurrency, failure handling, data partitioning, specific algorithms (e.g. consistent hashing, base62 encoding, leader election).</p>

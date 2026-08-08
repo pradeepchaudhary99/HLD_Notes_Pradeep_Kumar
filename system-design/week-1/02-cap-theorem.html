@@ -73,6 +73,33 @@
           </div>
         </div>
 
+        <div class="diagram">
+          <svg viewBox="0 0 620 340" xmlns="http://www.w3.org/2000/svg" class="diagram-label">
+            <!-- triangle vertices: C top, A bottom-left, P bottom-right -->
+            <polygon points="310,40 90,270 530,270" fill="none" stroke="#262a35" stroke-width="2"/>
+            <line x1="310" y1="40" x2="90" y2="270" stroke="#5b9dff" stroke-width="3"/>
+            <line x1="90" y1="270" x2="530" y2="270" stroke="#f5a623" stroke-width="3" stroke-dasharray="6 4"/>
+            <line x1="530" y1="270" x2="310" y2="40" stroke="#34d399" stroke-width="3"/>
+
+            <circle cx="310" cy="40" r="26" fill="#161922" stroke="#e7e9ee" stroke-width="2"/>
+            <text x="310" y="47" text-anchor="middle" fill="#e7e9ee" font-size="18" font-weight="700">C</text>
+            <text x="310" y="20" text-anchor="middle" fill="#9aa1b1" font-size="11">Consistency</text>
+
+            <circle cx="90" cy="270" r="26" fill="#161922" stroke="#e7e9ee" stroke-width="2"/>
+            <text x="90" y="277" text-anchor="middle" fill="#e7e9ee" font-size="18" font-weight="700">A</text>
+            <text x="90" y="312" text-anchor="middle" fill="#9aa1b1" font-size="11">Availability</text>
+
+            <circle cx="530" cy="270" r="26" fill="#161922" stroke="#e7e9ee" stroke-width="2"/>
+            <text x="530" y="277" text-anchor="middle" fill="#e7e9ee" font-size="18" font-weight="700">P</text>
+            <text x="530" y="312" text-anchor="middle" fill="#9aa1b1" font-size="11">Partition tolerance</text>
+
+            <text x="175" y="150" fill="#5b9dff" font-size="12" font-weight="600" transform="rotate(-58 175 150)">CP systems</text>
+            <text x="435" y="150" fill="#34d399" font-size="12" font-weight="600" transform="rotate(58 435 150)">AP systems</text>
+            <text x="310" y="288" text-anchor="middle" fill="#f5a623" font-size="12" font-weight="600">CA — only possible without a network (theoretical)</text>
+          </svg>
+          <div class="diagram-caption">Fig 1. The CAP triangle — real distributed systems live on the C↔P or A↔P edge, since P is mandatory once a network is involved.</div>
+        </div>
+
         <table>
           <tr><th>Choice</th><th>Behavior during partition</th><th>Examples</th></tr>
           <tr><td><strong>CP</strong></td><td>Reject/block requests on the minority side to guarantee consistency</td><td>MongoDB (default), HBase, Zookeeper, etcd, most RDBMS with sync replication</td></tr>
@@ -92,6 +119,35 @@
         </ul>
 
         <h2>Consistency models (from strongest to weakest)</h2>
+
+        <div class="diagram">
+          <svg viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg" class="diagram-label">
+            <defs>
+              <linearGradient id="specGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#5b9dff"/>
+                <stop offset="50%" stop-color="#34d399"/>
+                <stop offset="100%" stop-color="#f5a623"/>
+              </linearGradient>
+            </defs>
+            <rect x="30" y="55" width="660" height="10" rx="5" fill="url(#specGrad)"/>
+            <g font-size="11" fill="#e7e9ee" text-anchor="middle">
+              <circle cx="50" cy="60" r="6" fill="#0f1115" stroke="#5b9dff" stroke-width="2"/>
+              <text x="50" y="95">Strong</text>
+              <circle cx="205" cy="60" r="6" fill="#0f1115" stroke="#5b9dff" stroke-width="2"/>
+              <text x="205" y="95">Linearizable</text>
+              <circle cx="360" cy="60" r="6" fill="#0f1115" stroke="#34d399" stroke-width="2"/>
+              <text x="360" y="95">Sequential</text>
+              <circle cx="515" cy="60" r="6" fill="#0f1115" stroke="#34d399" stroke-width="2"/>
+              <text x="515" y="95">Causal</text>
+              <circle cx="670" cy="60" r="6" fill="#0f1115" stroke="#f5a623" stroke-width="2"/>
+              <text x="670" y="95">Eventual</text>
+            </g>
+            <text x="50" y="35" text-anchor="middle" fill="#9aa1b1" font-size="10">expensive · low availability</text>
+            <text x="670" y="35" text-anchor="middle" fill="#9aa1b1" font-size="10">cheap · high availability</text>
+            <text x="360" y="130" text-anchor="middle" fill="#676e80" font-size="11">stronger guarantees →————————————————→ weaker guarantees, better performance</text>
+          </svg>
+          <div class="diagram-caption">Fig 2. The consistency spectrum — pick the weakest model that still satisfies your correctness requirement.</div>
+        </div>
 
         <h3>Strong / Strict consistency</h3>
         <p>Every read reflects the latest committed write, and all clients agree on ordering as if all operations happened on a single machine with no delay. Extremely expensive — usually requires consensus (Paxos/Raft) or a single writer.</p>
