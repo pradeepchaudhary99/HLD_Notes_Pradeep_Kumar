@@ -61,6 +61,64 @@
           <tr><td>Database-level</td><td>Query cache, buffer pool (e.g. Postgres shared_buffers, MySQL InnoDB buffer pool)</td></tr>
         </table>
 
+        <div class="diagram">
+          <svg viewBox="0 0 720 300" xmlns="http://www.w3.org/2000/svg" class="diagram-label">
+            <defs>
+              <marker id="arrowc" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="#9aa1b1"/>
+              </marker>
+            </defs>
+            <!-- Panel 1: Cache-aside -->
+            <text x="120" y="20" text-anchor="middle" fill="#5b9dff" font-size="13" font-weight="700">Cache-aside</text>
+            <rect x="60" y="40" width="70" height="36" rx="6" fill="#161922" stroke="#e7e9ee" stroke-width="1.6"/>
+            <text x="95" y="62" text-anchor="middle" fill="#e7e9ee" font-size="10">App</text>
+            <rect x="10" y="110" width="70" height="36" rx="6" fill="#5b9dff18" stroke="#5b9dff" stroke-width="1.6"/>
+            <text x="45" y="132" text-anchor="middle" fill="#5b9dff" font-size="10">Cache</text>
+            <rect x="110" y="110" width="70" height="36" rx="6" fill="#161922" stroke="#676e80" stroke-width="1.6"/>
+            <text x="145" y="132" text-anchor="middle" fill="#9aa1b1" font-size="10">DB</text>
+            <line x1="80" y1="60" x2="55" y2="106" stroke="#9aa1b1" stroke-width="1.3" marker-end="url(#arrowc)"/>
+            <text x="35" y="95" fill="#9aa1b1" font-size="8">1. read</text>
+            <line x1="55" y1="146" x2="55" y2="165" stroke="#ef5b5b" stroke-width="1.3" marker-end="url(#arrowc)"/>
+            <text x="0" y="163" fill="#ef5b5b" font-size="8">miss</text>
+            <line x1="80" y1="65" x2="140" y2="106" stroke="#9aa1b1" stroke-width="1.3" marker-end="url(#arrowc)"/>
+            <text x="120" y="95" fill="#9aa1b1" font-size="8">2. fetch</text>
+            <text x="95" y="185" text-anchor="middle" fill="#676e80" font-size="9">App populates cache after DB read</text>
+
+            <line x1="235" y1="10" x2="235" y2="200" stroke="#262a35" stroke-width="1"/>
+
+            <!-- Panel 2: Write-through -->
+            <text x="365" y="20" text-anchor="middle" fill="#34d399" font-size="13" font-weight="700">Write-through</text>
+            <rect x="305" y="40" width="70" height="36" rx="6" fill="#161922" stroke="#e7e9ee" stroke-width="1.6"/>
+            <text x="340" y="62" text-anchor="middle" fill="#e7e9ee" font-size="10">App</text>
+            <rect x="255" y="110" width="70" height="36" rx="6" fill="#34d39918" stroke="#34d399" stroke-width="1.6"/>
+            <text x="290" y="132" text-anchor="middle" fill="#34d399" font-size="10">Cache</text>
+            <rect x="355" y="110" width="70" height="36" rx="6" fill="#34d39918" stroke="#34d399" stroke-width="1.6"/>
+            <text x="390" y="132" text-anchor="middle" fill="#34d399" font-size="10">DB</text>
+            <line x1="325" y1="60" x2="300" y2="106" stroke="#34d399" stroke-width="1.3" marker-end="url(#arrowc)"/>
+            <line x1="325" y1="65" x2="385" y2="106" stroke="#34d399" stroke-width="1.3" marker-end="url(#arrowc)"/>
+            <text x="340" y="95" text-anchor="middle" fill="#34d399" font-size="8">write both, together</text>
+            <text x="340" y="185" text-anchor="middle" fill="#676e80" font-size="9">Caller waits for both to succeed</text>
+
+            <line x1="480" y1="10" x2="480" y2="200" stroke="#262a35" stroke-width="1"/>
+
+            <!-- Panel 3: Write-back -->
+            <text x="610" y="20" text-anchor="middle" fill="#f5a623" font-size="13" font-weight="700">Write-back</text>
+            <rect x="550" y="40" width="70" height="36" rx="6" fill="#161922" stroke="#e7e9ee" stroke-width="1.6"/>
+            <text x="585" y="62" text-anchor="middle" fill="#e7e9ee" font-size="10">App</text>
+            <rect x="550" y="110" width="70" height="36" rx="6" fill="#f5a62318" stroke="#f5a623" stroke-width="1.6"/>
+            <text x="585" y="132" text-anchor="middle" fill="#f5a623" font-size="10">Cache</text>
+            <rect x="640" y="150" width="70" height="36" rx="6" fill="#161922" stroke="#676e80" stroke-width="1.6"/>
+            <text x="675" y="172" text-anchor="middle" fill="#9aa1b1" font-size="10">DB</text>
+            <line x1="585" y1="76" x2="585" y2="106" stroke="#f5a623" stroke-width="1.3" marker-end="url(#arrowc)"/>
+            <text x="595" y="95" fill="#f5a623" font-size="8">1. write, ack immediately</text>
+            <line x1="620" y1="140" x2="645" y2="155" stroke="#676e80" stroke-width="1.3" stroke-dasharray="3 2" marker-end="url(#arrowc)"/>
+            <text x="620" y="200" text-anchor="middle" fill="#676e80" font-size="9">2. flushed async / batched later</text>
+
+            <text x="360" y="260" text-anchor="middle" fill="#676e80" font-size="11">Fastest writes (write-back) trade off crash-safety; safest writes (write-through) trade off latency.</text>
+          </svg>
+          <div class="diagram-caption">Fig 1. The three caching write strategies side by side.</div>
+        </div>
+
         <h2>Cache-aside (lazy loading)</h2>
         <p>The application is responsible for managing the cache explicitly. Most common pattern in practice.</p>
         <pre><code>READ:

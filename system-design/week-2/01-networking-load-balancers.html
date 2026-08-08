@@ -60,6 +60,56 @@
         <h2>Load balancers: L4 vs L7</h2>
         <p>A load balancer distributes incoming traffic across multiple backend servers so no single machine is overwhelmed, and so the system keeps working if one server goes down.</p>
 
+        <div class="diagram">
+          <svg viewBox="0 0 680 260" xmlns="http://www.w3.org/2000/svg" class="diagram-label">
+            <defs>
+              <marker id="arrowlb" markerWidth="8" markerHeight="8" refX="6" refY="4" orient="auto">
+                <path d="M0,0 L8,4 L0,8 Z" fill="#9aa1b1"/>
+              </marker>
+            </defs>
+            <!-- L4 side -->
+            <text x="170" y="20" text-anchor="middle" fill="#5b9dff" font-size="13" font-weight="700">L4 — Transport</text>
+            <rect x="20" y="90" width="90" height="40" rx="8" fill="#161922" stroke="#5b9dff" stroke-width="2"/>
+            <text x="65" y="114" text-anchor="middle" fill="#e7e9ee" font-size="11">Client</text>
+            <rect x="150" y="90" width="90" height="40" rx="8" fill="#5b9dff18" stroke="#5b9dff" stroke-width="2"/>
+            <text x="195" y="108" text-anchor="middle" fill="#5b9dff" font-size="10" font-weight="700">L4 LB</text>
+            <text x="195" y="121" text-anchor="middle" fill="#9aa1b1" font-size="9">IP:port only</text>
+            <line x1="110" y1="110" x2="146" y2="110" stroke="#9aa1b1" stroke-width="1.6" marker-end="url(#arrowlb)"/>
+            <line x1="240" y1="100" x2="290" y2="65" stroke="#9aa1b1" stroke-width="1.4" marker-end="url(#arrowlb)"/>
+            <line x1="240" y1="110" x2="290" y2="110" stroke="#9aa1b1" stroke-width="1.4" marker-end="url(#arrowlb)"/>
+            <line x1="240" y1="120" x2="290" y2="155" stroke="#9aa1b1" stroke-width="1.4" marker-end="url(#arrowlb)"/>
+            <rect x="290" y="45" width="80" height="34" rx="6" fill="#161922" stroke="#676e80" stroke-width="1.6"/>
+            <text x="330" y="66" text-anchor="middle" fill="#9aa1b1" font-size="10">Server A</text>
+            <rect x="290" y="93" width="80" height="34" rx="6" fill="#161922" stroke="#676e80" stroke-width="1.6"/>
+            <text x="330" y="114" text-anchor="middle" fill="#9aa1b1" font-size="10">Server B</text>
+            <rect x="290" y="141" width="80" height="34" rx="6" fill="#161922" stroke="#676e80" stroke-width="1.6"/>
+            <text x="330" y="162" text-anchor="middle" fill="#9aa1b1" font-size="10">Server C</text>
+            <text x="195" y="200" text-anchor="middle" fill="#676e80" font-size="10">forwards raw packets, can't see request content</text>
+
+            <line x1="410" y1="10" x2="410" y2="230" stroke="#262a35" stroke-width="1"/>
+
+            <!-- L7 side -->
+            <text x="550" y="20" text-anchor="middle" fill="#34d399" font-size="13" font-weight="700">L7 — Application</text>
+            <rect x="440" y="90" width="90" height="40" rx="8" fill="#161922" stroke="#34d399" stroke-width="2"/>
+            <text x="485" y="114" text-anchor="middle" fill="#e7e9ee" font-size="11">Client</text>
+            <rect x="570" y="90" width="90" height="40" rx="8" fill="#34d39918" stroke="#34d399" stroke-width="2"/>
+            <text x="615" y="105" text-anchor="middle" fill="#34d399" font-size="10" font-weight="700">L7 LB</text>
+            <text x="615" y="118" text-anchor="middle" fill="#9aa1b1" font-size="9">reads path/header</text>
+            <line x1="530" y1="110" x2="566" y2="110" stroke="#9aa1b1" stroke-width="1.6" marker-end="url(#arrowlb)"/>
+            <text x="660" y="65" fill="#9aa1b1" font-size="9">/api/*</text>
+            <line x1="660" y1="90" x2="660" y2="70" stroke="#9aa1b1" stroke-width="1.2" marker-end="url(#arrowlb)"/>
+            <text x="660" y="185" fill="#9aa1b1" font-size="9" text-anchor="end">/static/*</text>
+
+            <rect x="440" y="200" width="100" height="34" rx="6" fill="#161922" stroke="#676e80" stroke-width="1.6"/>
+            <text x="490" y="221" text-anchor="middle" fill="#9aa1b1" font-size="10">API service</text>
+            <rect x="560" y="200" width="100" height="34" rx="6" fill="#161922" stroke="#676e80" stroke-width="1.6"/>
+            <text x="610" y="221" text-anchor="middle" fill="#9aa1b1" font-size="10">Static service</text>
+            <line x1="600" y1="130" x2="495" y2="196" stroke="#9aa1b1" stroke-width="1.2" marker-end="url(#arrowlb)"/>
+            <line x1="620" y1="130" x2="610" y2="196" stroke="#9aa1b1" stroke-width="1.2" marker-end="url(#arrowlb)"/>
+          </svg>
+          <div class="diagram-caption">Fig 1. L4 shuffles packets to any healthy server; L7 reads the request and can route <code>/api/*</code> and <code>/static/*</code> to entirely different services.</div>
+        </div>
+
         <table>
           <tr><th></th><th>Layer 4 (Transport)</th><th>Layer 7 (Application)</th></tr>
           <tr><td>Operates on</td><td>IP + TCP/UDP port only</td><td>Full HTTP request: headers, path, cookies, body</td></tr>
@@ -86,6 +136,45 @@
         <h2>Consistent hashing</h2>
         <p>Problem: with plain modulo hashing (<code>server = hash(key) % N</code>), adding or removing a single server changes <code>N</code> and reshuffles <em>almost every key's mapping</em> — catastrophic for caches (mass cache misses) or sharded databases (mass data movement).</p>
         <p><strong>Consistent hashing</strong> fixes this by mapping both servers and keys onto the same abstract hash ring (0 to 2³²-1, say). A key is assigned to the first server found walking clockwise from the key's position on the ring.</p>
+
+        <div class="diagram">
+          <svg viewBox="0 0 460 380" xmlns="http://www.w3.org/2000/svg" class="diagram-label">
+            <circle cx="230" cy="190" r="150" fill="none" stroke="#262a35" stroke-width="2"/>
+            <!-- servers on ring at angles -->
+            <!-- angle 0 = top, going clockwise -->
+            <g>
+              <circle cx="230" cy="40" r="10" fill="#5b9dff"/>
+              <text x="230" y="24" text-anchor="middle" fill="#5b9dff" font-size="12" font-weight="700">Server A</text>
+            </g>
+            <g>
+              <circle cx="380" cy="190" r="10" fill="#34d399"/>
+              <text x="415" y="194" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">Server B</text>
+            </g>
+            <g>
+              <circle cx="230" cy="340" r="10" fill="#f5a623"/>
+              <text x="230" y="362" text-anchor="middle" fill="#f5a623" font-size="12" font-weight="700">Server C</text>
+            </g>
+            <!-- keys -->
+            <g>
+              <circle cx="330" cy="80" r="6" fill="#e7e9ee"/>
+              <text x="345" y="70" fill="#9aa1b1" font-size="10">key: user:42</text>
+              <line x1="330" y1="80" x2="245" y2="52" stroke="#9aa1b1" stroke-width="1" stroke-dasharray="3 2"/>
+            </g>
+            <g>
+              <circle cx="340" cy="280" r="6" fill="#e7e9ee"/>
+              <text x="352" y="300" fill="#9aa1b1" font-size="10">key: user:99</text>
+              <line x1="340" y1="280" x2="370" y2="205" stroke="#9aa1b1" stroke-width="1" stroke-dasharray="3 2"/>
+            </g>
+            <g>
+              <circle cx="110" cy="270" r="6" fill="#e7e9ee"/>
+              <text x="95" y="298" fill="#9aa1b1" font-size="10">key: user:7</text>
+              <line x1="110" y1="270" x2="221" y2="335" stroke="#9aa1b1" stroke-width="1" stroke-dasharray="3 2"/>
+            </g>
+            <text x="230" y="190" text-anchor="middle" fill="#676e80" font-size="10">walk clockwise →</text>
+            <text x="230" y="204" text-anchor="middle" fill="#676e80" font-size="10">first server wins</text>
+          </svg>
+          <div class="diagram-caption">Fig 2. Each key maps to the next server clockwise. Removing Server B only reassigns keys between A and B — everything else is untouched.</div>
+        </div>
         <ul>
           <li>When a server is added or removed, only the keys between it and its immediate neighbor on the ring move — roughly <code>1/N</code> of all keys, not all of them.</li>
           <li><strong>Virtual nodes (vnodes):</strong> each physical server is hashed to multiple points on the ring (e.g. 100–200 vnodes per server) so load is spread evenly and a single server failure doesn't dump all its load onto one neighbor.</li>
