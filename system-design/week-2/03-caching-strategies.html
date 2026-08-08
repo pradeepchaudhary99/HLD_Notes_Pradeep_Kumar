@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Caching Strategies — Class Notes</title>
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <a href="../../index.html" class="sidebar-brand">📘 Class Notes</a>
+    <div class="sidebar-tagline">System Design & Backend Engineering</div>
+    <nav>
+      <div class="week-block">
+        <div class="week-title">Course</div>
+        <ul>
+          <li><a href="../../index.html">Home</a></li>
+          <li><a href="../index.html">System Design — All Weeks</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 1 — HLD Foundations</div>
+        <ul>
+          <li><a href="../week-1/01-hld-approach.html">Approaching an HLD Interview</a></li>
+          <li><a href="../week-1/02-cap-theorem.html">CAP Theorem & Consistency</a></li>
+          <li><a href="../week-1/03-sql-vs-nosql.html">SQL vs NoSQL</a></li>
+          <li><a href="../week-1/04-estimation.html">Back-of-Envelope Estimation</a></li>
+          <li><a href="../week-1/05-api-data-model.html">API Design & Data Model</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 2 — Core Infra Building Blocks</div>
+        <ul>
+          <li><a href="01-networking-load-balancers.html">Load Balancers & Networking</a></li>
+          <li><a href="02-cdn-dns-reverse-proxy.html">CDN, DNS & Reverse Proxies</a></li>
+          <li><a href="03-caching-strategies.html" class="active">Caching Strategies</a></li>
+          <li><a href="04-redis-deep-dive.html">Redis Deep Dive</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="sidebar-footer">Updated as classes progress.</div>
+  </aside>
+
+  <main class="content">
+    <div class="content-inner">
+      <div class="breadcrumb"><a href="../../index.html">Home</a> / <a href="../index.html">System Design</a> / Week 2</div>
+      <div class="page-header"><h1>Caching Strategies</h1></div>
+      <div class="page-meta"><span class="tag amber">Week 2</span><span class="tag green">Performance</span></div>
+
+      <article>
+        <p>Caching is the single highest-leverage tool for turning a slow, expensive system into a fast, cheap one — because it exploits the fact that most real workloads are heavily read-skewed and re-read the same hot data repeatedly. The trade-off you're always managing is <strong>staleness vs. performance</strong>.</p>
+
+        <h2>Where caches live</h2>
+        <table>
+          <tr><th>Layer</th><th>Example</th></tr>
+          <tr><td>Client-side</td><td>Browser cache, mobile app local storage</td></tr>
+          <tr><td>CDN / edge</td><td>Cached static assets close to the user</td></tr>
+          <tr><td>Application-level (in-memory)</td><td>In-process cache inside a service (fastest, but not shared across instances)</td></tr>
+          <tr><td>Distributed cache</td><td>Redis / Memcached — shared across all app instances</td></tr>
+          <tr><td>Database-level</td><td>Query cache, buffer pool (e.g. Postgres shared_buffers, MySQL InnoDB buffer pool)</td></tr>
+        </table>
+
+        <h2>Cache-aside (lazy loading)</h2>
+        <p>The application is responsible for managing the cache explicitly. Most common pattern in practice.</p>
+        <pre><code>READ:
+  value = cache.get(key)
+  if value is None:           # cache miss
+      value = db.query(key)
+      cache.set(key, value, ttl=300)
+  return value
+
+WRITE:
+  db.update(key, new_value)
+  cache.delete(key)           # invalidate — don't update in place
+</code></pre>
+        <ul>
+          <li><strong>Pros:</strong> only requested data gets cached (no wasted memory); cache failure just means falling back to the DB (resilient).</li>
+          <li><strong>Cons:</strong> first request for any key is always a slow miss ("cold start" / thundering herd risk); brief window of inconsistency between DB write and cache invalidation.</li>
+        </ul>
+
+        <h2>Write-through</h2>
+        <p>Every write goes to the cache <em>and</em> the database synchronously, together, before the write is considered complete.</p>
+        <pre><code>WRITE:
+  cache.set(key, new_value)
+  db.write(key, new_value)     # both must succeed
+  return success
+</code></pre>
+        <ul>
+          <li><strong>Pros:</strong> cache is always consistent with the DB — no stale reads after a write.</li>
+          <li><strong>Cons:</strong> every write pays the latency of both cache and DB; data that's never read still gets cached (wasted memory) unless combined with a TTL/eviction policy.</li>
+        </ul>
+
+        <h2>Write-back (write-behind)</h2>
+        <p>Writes go to the cache immediately and are acknowledged to the client right away; the cache asynchronously flushes to the database later (batched or on a delay).</p>
+        <pre><code>WRITE:
+  cache.set(key, new_value)
+  queue.enqueue(flush_to_db, key, new_value)   # async, batched
+  return success   # fast — caller doesn't wait on the DB
+</code></pre>
+        <ul>
+          <li><strong>Pros:</strong> lowest write latency; can batch/coalesce many writes to the DB (fewer, cheaper writes).</li>
+          <li><strong>Cons:</strong> risk of data loss if the cache node crashes before flushing (mitigate with cache persistence/replication); more complex to implement correctly.</li>
+          <li><strong>Used for:</strong> high-frequency counters (view counts, likes) where losing the last few increments on a rare crash is an acceptable trade for speed.</li>
+        </ul>
+
+        <table>
+          <tr><th>Strategy</th><th>Write latency</th><th>Consistency risk</th><th>Data-loss risk on crash</th></tr>
+          <tr><td>Cache-aside</td><td>DB only (cache invalidated, not written)</td><td>Brief staleness window</td><td>None (cache is disposable)</td></tr>
+          <tr><td>Write-through</td><td>Cache + DB (slower)</td><td>Low — always in sync</td><td>None</td></tr>
+          <tr><td>Write-back</td><td>Cache only (fastest)</td><td>Low, but DB lags cache</td><td>Yes, until flushed</td></tr>
+        </table>
+
+        <h2>TTL (time to live)</h2>
+        <p>Every cached entry should generally have an expiration to bound staleness and prevent unbounded memory growth. Choosing a TTL is a judgment call tied to how often the underlying data changes and how bad stale data is:</p>
+        <ul>
+          <li>Session tokens: minutes to hours.</li>
+          <li>Product prices/inventory: seconds to a couple of minutes.</li>
+          <li>Rarely-changing reference data (country list, config): hours to a day.</li>
+          <li><strong>Jitter your TTLs</strong> (e.g. base + random 0-30s) so a huge batch of keys set at the same time don't all expire simultaneously and hammer the DB at once.</li>
+        </ul>
+
+        <h2>Eviction policies (when the cache is full)</h2>
+        <ul>
+          <li><strong>LRU (Least Recently Used):</strong> evict the entry that hasn't been accessed in the longest time — the default choice for most workloads, and Redis's default (<code>allkeys-lru</code>).</li>
+          <li><strong>LFU (Least Frequently Used):</strong> evict the entry accessed the fewest times — better when access frequency matters more than recency (e.g. some items are rarely-but-regularly hit).</li>
+          <li><strong>FIFO:</strong> evict the oldest-inserted entry regardless of access pattern — simple but rarely optimal.</li>
+          <li><strong>Random:</strong> surprisingly competitive in some workloads, essentially zero bookkeeping overhead.</li>
+        </ul>
+
+        <h2>Failure modes to know</h2>
+        <div class="callout warn">
+          <div class="callout-title">Cache stampede / thundering herd</div>
+          A hot key expires, and thousands of concurrent requests all miss the cache at once and hammer the database simultaneously. Mitigations: <strong>request coalescing</strong> (only one request per key actually queries the DB, others wait on that result), <strong>early/probabilistic refresh</strong> (refresh slightly before actual expiry), or a short <strong>lock</strong> around the recompute.
+        </div>
+        <div class="callout warn">
+          <div class="callout-title">Cache penetration</div>
+          Repeated requests for a key that doesn't exist in the DB bypass the cache every time (nothing to cache) and hit the DB directly — can be exploited or happen accidentally at scale. Fix: cache the "not found" result too (with a short TTL), or use a bloom filter to reject definitely-nonexistent keys before touching the DB.
+        </div>
+        <div class="callout warn">
+          <div class="callout-title">Cache avalanche</div>
+          A large number of keys expire at (or near) the same time, causing a sudden spike of DB load. Fix: TTL jitter (mentioned above), and/or a multi-tier cache so a single layer failing doesn't fully expose the DB.
+        </div>
+
+        <div class="callout interview">
+          <div class="callout-title">Interview framing</div>
+          Default to <strong>cache-aside</strong> unless you have a specific reason not to — it's the most common, most resilient pattern. Reach for <strong>write-through</strong> when correctness after a write matters a lot and writes are infrequent. Reach for <strong>write-back</strong> when you have very high write volume and can tolerate a small risk window (e.g. counters, analytics events) — exactly the kind of thing we'll see in the Redis deep dive next.
+        </div>
+      </article>
+
+      <div class="page-nav">
+        <a href="02-cdn-dns-reverse-proxy.html"><span class="dir">Previous</span>CDN, DNS & Reverse Proxies</a>
+        <a class="next" href="04-redis-deep-dive.html"><span class="dir">Next</span>Redis Deep Dive →</a>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

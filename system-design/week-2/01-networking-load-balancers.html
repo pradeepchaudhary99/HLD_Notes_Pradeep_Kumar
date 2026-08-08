@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Load Balancers & Networking — Class Notes</title>
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <a href="../../index.html" class="sidebar-brand">📘 Class Notes</a>
+    <div class="sidebar-tagline">System Design & Backend Engineering</div>
+    <nav>
+      <div class="week-block">
+        <div class="week-title">Course</div>
+        <ul>
+          <li><a href="../../index.html">Home</a></li>
+          <li><a href="../index.html">System Design — All Weeks</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 1 — HLD Foundations</div>
+        <ul>
+          <li><a href="../week-1/01-hld-approach.html">Approaching an HLD Interview</a></li>
+          <li><a href="../week-1/02-cap-theorem.html">CAP Theorem & Consistency</a></li>
+          <li><a href="../week-1/03-sql-vs-nosql.html">SQL vs NoSQL</a></li>
+          <li><a href="../week-1/04-estimation.html">Back-of-Envelope Estimation</a></li>
+          <li><a href="../week-1/05-api-data-model.html">API Design & Data Model</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 2 — Core Infra Building Blocks</div>
+        <ul>
+          <li><a href="01-networking-load-balancers.html" class="active">Load Balancers & Networking</a></li>
+          <li><a href="02-cdn-dns-reverse-proxy.html">CDN, DNS & Reverse Proxies</a></li>
+          <li><a href="03-caching-strategies.html">Caching Strategies</a></li>
+          <li><a href="04-redis-deep-dive.html">Redis Deep Dive</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="sidebar-footer">Updated as classes progress.</div>
+  </aside>
+
+  <main class="content">
+    <div class="content-inner">
+      <div class="breadcrumb"><a href="../../index.html">Home</a> / <a href="../index.html">System Design</a> / Week 2</div>
+      <div class="page-header"><h1>Networking Concepts & Load Balancers</h1></div>
+      <div class="page-meta"><span class="tag amber">Week 2</span><span class="tag green">Infrastructure</span></div>
+
+      <article>
+        <h2>Networking refresher</h2>
+        <ul>
+          <li><strong>TCP:</strong> connection-oriented, reliable, ordered, handles retransmission — used for HTTP, database connections, most application traffic.</li>
+          <li><strong>UDP:</strong> connectionless, no delivery guarantee, lower overhead — used for DNS, video/voice streaming, gaming, and as the transport for QUIC (HTTP/3).</li>
+          <li><strong>3-way handshake:</strong> SYN → SYN-ACK → ACK to establish a TCP connection before any data flows. This is why connection reuse (keep-alive, connection pooling) matters for latency.</li>
+          <li><strong>TLS handshake:</strong> sits on top of TCP, negotiates encryption keys — adds 1-2 extra round trips (reduced with TLS 1.3 and session resumption).</li>
+        </ul>
+
+        <h2>Load balancers: L4 vs L7</h2>
+        <p>A load balancer distributes incoming traffic across multiple backend servers so no single machine is overwhelmed, and so the system keeps working if one server goes down.</p>
+
+        <table>
+          <tr><th></th><th>Layer 4 (Transport)</th><th>Layer 7 (Application)</th></tr>
+          <tr><td>Operates on</td><td>IP + TCP/UDP port only</td><td>Full HTTP request: headers, path, cookies, body</td></tr>
+          <tr><td>Routing decisions</td><td>Based on source/dest IP & port; forwards packets</td><td>Can route by URL path, hostname, header, cookie (e.g. <code>/api/*</code> → service A, <code>/static/*</code> → service B)</td></tr>
+          <tr><td>Speed / overhead</td><td>Very fast, minimal processing — just shuffles packets</td><td>Slower (terminates connection, parses request) but far more flexible</td></tr>
+          <tr><td>Examples</td><td>AWS NLB, LVS, basic HAProxy TCP mode</td><td>AWS ALB, NGINX, Envoy, HAProxy HTTP mode</td></tr>
+          <tr><td>Use when</td><td>Raw throughput matters most, protocol-agnostic (e.g. non-HTTP TCP/UDP services)</td><td>You need smart routing, SSL termination, request-level features (auth, rate limiting, A/B routing)</td></tr>
+        </table>
+
+        <div class="callout interview">
+          <div class="callout-title">Interview one-liner</div>
+          "L4 balances connections, L7 balances requests." An L4 LB can't tell two HTTP requests on the same persistent connection apart; an L7 LB can route every single request differently based on its content.
+        </div>
+
+        <h2>Load balancing algorithms</h2>
+        <ul>
+          <li><strong>Round robin:</strong> cycle through servers in order. Simple, assumes uniform server capacity and request cost.</li>
+          <li><strong>Weighted round robin:</strong> like round robin but some servers get more traffic (e.g. more powerful machines).</li>
+          <li><strong>Least connections:</strong> send the next request to whichever server currently has the fewest active connections — better when request processing times vary a lot.</li>
+          <li><strong>IP hash:</strong> hash client IP to consistently route the same client to the same server (useful for sticky sessions without a shared session store).</li>
+          <li><strong>Consistent hashing:</strong> see below — used when you need stable routing that survives servers being added/removed.</li>
+        </ul>
+
+        <h2>Consistent hashing</h2>
+        <p>Problem: with plain modulo hashing (<code>server = hash(key) % N</code>), adding or removing a single server changes <code>N</code> and reshuffles <em>almost every key's mapping</em> — catastrophic for caches (mass cache misses) or sharded databases (mass data movement).</p>
+        <p><strong>Consistent hashing</strong> fixes this by mapping both servers and keys onto the same abstract hash ring (0 to 2³²-1, say). A key is assigned to the first server found walking clockwise from the key's position on the ring.</p>
+        <ul>
+          <li>When a server is added or removed, only the keys between it and its immediate neighbor on the ring move — roughly <code>1/N</code> of all keys, not all of them.</li>
+          <li><strong>Virtual nodes (vnodes):</strong> each physical server is hashed to multiple points on the ring (e.g. 100–200 vnodes per server) so load is spread evenly and a single server failure doesn't dump all its load onto one neighbor.</li>
+        </ul>
+        <pre><code>Ring (simplified, 0-100):
+  ServerA @ 10, ServerB @ 40, ServerC @ 75
+
+  key "user:42"  → hash = 22 → next server clockwise = ServerB (40)
+  key "user:99"  → hash = 80 → next server clockwise = ServerA (wraps around to 10)
+
+  If ServerB is removed:
+    only keys between ServerA(10) and ServerB(40) reassign to ServerC —
+    keys between ServerB(40) and ServerC(75), and ServerC to ServerA, are untouched.
+</code></pre>
+        <p>Used in: Cassandra & DynamoDB (data partitioning across nodes), Memcached client libraries (which cache server owns a key), CDN request routing, and load balancers that need session affinity that survives scaling events.</p>
+
+        <h2>High availability of the load balancer itself</h2>
+        <p>The LB is a potential single point of failure — solved with an <strong>active-passive pair</strong> (floating/virtual IP failover via something like keepalived/VRRP) or DNS-based load balancing across multiple LB instances, often layered: DNS → a pool of L4 LBs → L7 LBs → application servers.</p>
+
+        <div class="callout">
+          <div class="callout-title">Health checks</div>
+          Load balancers continuously ping backend servers (e.g. <code>GET /health</code> every few seconds) and stop routing traffic to any instance that fails checks — this is what makes rolling deploys and auto-scaling safe.
+        </div>
+      </article>
+
+      <div class="page-nav">
+        <a href="../week-1/05-api-data-model.html"><span class="dir">Previous</span>API Design & Data Model</a>
+        <a class="next" href="02-cdn-dns-reverse-proxy.html"><span class="dir">Next</span>CDN, DNS & Reverse Proxies →</a>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

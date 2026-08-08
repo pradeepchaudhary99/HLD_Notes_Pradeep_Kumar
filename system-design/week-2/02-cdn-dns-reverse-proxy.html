@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CDN, DNS & Reverse Proxies — Class Notes</title>
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <a href="../../index.html" class="sidebar-brand">📘 Class Notes</a>
+    <div class="sidebar-tagline">System Design & Backend Engineering</div>
+    <nav>
+      <div class="week-block">
+        <div class="week-title">Course</div>
+        <ul>
+          <li><a href="../../index.html">Home</a></li>
+          <li><a href="../index.html">System Design — All Weeks</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 1 — HLD Foundations</div>
+        <ul>
+          <li><a href="../week-1/01-hld-approach.html">Approaching an HLD Interview</a></li>
+          <li><a href="../week-1/02-cap-theorem.html">CAP Theorem & Consistency</a></li>
+          <li><a href="../week-1/03-sql-vs-nosql.html">SQL vs NoSQL</a></li>
+          <li><a href="../week-1/04-estimation.html">Back-of-Envelope Estimation</a></li>
+          <li><a href="../week-1/05-api-data-model.html">API Design & Data Model</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 2 — Core Infra Building Blocks</div>
+        <ul>
+          <li><a href="01-networking-load-balancers.html">Load Balancers & Networking</a></li>
+          <li><a href="02-cdn-dns-reverse-proxy.html" class="active">CDN, DNS & Reverse Proxies</a></li>
+          <li><a href="03-caching-strategies.html">Caching Strategies</a></li>
+          <li><a href="04-redis-deep-dive.html">Redis Deep Dive</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="sidebar-footer">Updated as classes progress.</div>
+  </aside>
+
+  <main class="content">
+    <div class="content-inner">
+      <div class="breadcrumb"><a href="../../index.html">Home</a> / <a href="../index.html">System Design</a> / Week 2</div>
+      <div class="page-header"><h1>CDN, DNS & Reverse Proxies</h1></div>
+      <div class="page-meta"><span class="tag amber">Week 2</span><span class="tag green">Infrastructure</span></div>
+
+      <article>
+        <p>Before a request ever reaches your application code, it typically passes through DNS resolution, possibly a CDN edge, and a reverse proxy. Understanding this path is what lets you explain "why is this page slow" beyond just "the backend is slow."</p>
+
+        <h2>DNS (Domain Name System)</h2>
+        <p>Translates a human-readable hostname (<code>www.example.com</code>) into an IP address. It's a distributed, hierarchical, heavily-cached lookup system.</p>
+        <ol>
+          <li><strong>Browser/OS cache</strong> — checked first, fastest.</li>
+          <li><strong>Recursive resolver</strong> (usually your ISP or a public one like 8.8.8.8/1.1.1.1) — does the actual lookup on your behalf if not cached.</li>
+          <li><strong>Root nameserver</strong> → points to the <strong>TLD nameserver</strong> (e.g. for <code>.com</code>) → points to the <strong>authoritative nameserver</strong> for the domain, which returns the actual IP (A/AAAA record).</li>
+        </ol>
+        <table>
+          <tr><th>Record type</th><th>Purpose</th></tr>
+          <tr><td>A</td><td>Hostname → IPv4 address</td></tr>
+          <tr><td>AAAA</td><td>Hostname → IPv6 address</td></tr>
+          <tr><td>CNAME</td><td>Alias one hostname to another (e.g. <code>www</code> → <code>example.com</code>)</td></tr>
+          <tr><td>MX</td><td>Mail server for the domain</td></tr>
+          <tr><td>TXT</td><td>Arbitrary text — commonly used for domain verification, SPF/DKIM</td></tr>
+          <tr><td>NS</td><td>Which nameservers are authoritative for this domain</td></tr>
+        </table>
+        <p><strong>TTL (time to live)</strong> on a DNS record controls how long resolvers cache it — low TTL (e.g. 60s) means faster failover/changes but more lookup traffic; high TTL is cheaper but slower to propagate changes.</p>
+        <p><strong>DNS-based load balancing:</strong> return multiple IPs, or different IPs to different regions (GeoDNS), so users are routed to the nearest healthy datacenter before any request even leaves their machine.</p>
+
+        <h2>CDN (Content Delivery Network)</h2>
+        <p>A globally distributed network of edge/PoP (point of presence) servers that cache and serve content physically close to the end user, cutting round-trip latency and offloading your origin servers.</p>
+        <ul>
+          <li><strong>Static content</strong> (images, JS/CSS bundles, videos) is the classic use case — cached at the edge with long TTLs.</li>
+          <li><strong>Dynamic content acceleration:</strong> modern CDNs can also proxy dynamic requests through optimized backbone networks even when they can't cache the response.</li>
+          <li><strong>Push vs pull CDN:</strong> <em>pull</em> — CDN fetches from origin on first request (cache miss) and caches it (most common, low maintenance); <em>push</em> — you proactively upload content to the CDN ahead of time (used for large media libraries with predictable access).</li>
+          <li><strong>Cache invalidation:</strong> the classic hard problem — either wait out the TTL, use versioned/hashed filenames (<code>app.a1b2c3.js</code>, so a "new" file has a new URL and never needs invalidation), or explicitly purge via the CDN's API.</li>
+        </ul>
+        <div class="callout interview">
+          <div class="callout-title">Interview usage</div>
+          Whenever a design serves images/video/static assets to a wide geographic user base (Instagram, YouTube, Netflix, e-commerce product images), say "CDN" early — it's one of the highest-leverage, lowest-controversy additions to any architecture diagram.
+        </div>
+
+        <h2>Reverse proxy</h2>
+        <p>Sits in front of your application servers and forwards client requests to them — the mirror image of a forward proxy (which sits in front of clients and forwards their requests outward).</p>
+        <table>
+          <tr><th>Responsibility</th><th>Why it matters</th></tr>
+          <tr><td>TLS termination</td><td>Decrypt HTTPS once at the edge; internal traffic can be plain HTTP, simplifying certificate management</td></tr>
+          <tr><td>Load balancing</td><td>Often the same box acts as an L7 load balancer (e.g. NGINX, Envoy, HAProxy)</td></tr>
+          <tr><td>Caching</td><td>Cache responses close to the app tier</td></tr>
+          <tr><td>Compression</td><td>Gzip/Brotli responses before sending to the client</td></tr>
+          <tr><td>Security</td><td>Hide internal server topology/IPs; a single hardened entry point; can block malicious patterns (WAF)</td></tr>
+          <tr><td>Request routing</td><td>Path/host-based routing to different backend services (a stepping stone to API gateways)</td></tr>
+        </table>
+        <p>Common tools: <strong>NGINX</strong>, <strong>HAProxy</strong>, <strong>Envoy</strong> (popular in service-mesh/microservices setups), cloud-managed equivalents (AWS ALB + CloudFront, GCP Load Balancer).</p>
+
+        <h2>Putting it together: the request path</h2>
+        <pre><code>1. Browser resolves example.com via DNS (often GeoDNS → nearest region)
+2. Request hits nearest CDN edge/PoP
+     - Static asset? Served directly from edge cache. Done.
+     - Dynamic/API request? Proxied toward origin.
+3. Request reaches the origin's reverse proxy / L7 load balancer
+     - TLS terminated, routed by path/host to the right service
+4. Load balancer forwards to a healthy application server
+5. App server reads from cache (e.g. Redis) or falls through to the database
+</code></pre>
+
+        <div class="callout">
+          <div class="callout-title">Interview framing</div>
+          When asked "how would you reduce latency for global users," the answer almost always starts with this exact chain: push static content to a CDN, use GeoDNS/anycast to route to the nearest region, terminate TLS at the edge, and only go to origin for true cache misses.
+        </div>
+      </article>
+
+      <div class="page-nav">
+        <a href="01-networking-load-balancers.html"><span class="dir">Previous</span>Load Balancers & Networking</a>
+        <a class="next" href="03-caching-strategies.html"><span class="dir">Next</span>Caching Strategies →</a>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

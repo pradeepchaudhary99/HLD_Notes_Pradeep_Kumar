@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redis Deep Dive — Class Notes</title>
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <a href="../../index.html" class="sidebar-brand">📘 Class Notes</a>
+    <div class="sidebar-tagline">System Design & Backend Engineering</div>
+    <nav>
+      <div class="week-block">
+        <div class="week-title">Course</div>
+        <ul>
+          <li><a href="../../index.html">Home</a></li>
+          <li><a href="../index.html">System Design — All Weeks</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 1 — HLD Foundations</div>
+        <ul>
+          <li><a href="../week-1/01-hld-approach.html">Approaching an HLD Interview</a></li>
+          <li><a href="../week-1/02-cap-theorem.html">CAP Theorem & Consistency</a></li>
+          <li><a href="../week-1/03-sql-vs-nosql.html">SQL vs NoSQL</a></li>
+          <li><a href="../week-1/04-estimation.html">Back-of-Envelope Estimation</a></li>
+          <li><a href="../week-1/05-api-data-model.html">API Design & Data Model</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 2 — Core Infra Building Blocks</div>
+        <ul>
+          <li><a href="01-networking-load-balancers.html">Load Balancers & Networking</a></li>
+          <li><a href="02-cdn-dns-reverse-proxy.html">CDN, DNS & Reverse Proxies</a></li>
+          <li><a href="03-caching-strategies.html">Caching Strategies</a></li>
+          <li><a href="04-redis-deep-dive.html" class="active">Redis Deep Dive</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="sidebar-footer">Updated as classes progress.</div>
+  </aside>
+
+  <main class="content">
+    <div class="content-inner">
+      <div class="breadcrumb"><a href="../../index.html">Home</a> / <a href="../index.html">System Design</a> / Week 2</div>
+      <div class="page-header"><h1>Redis Deep Dive</h1></div>
+      <div class="page-meta"><span class="tag amber">Week 2</span><span class="tag green">Live Demo</span></div>
+
+      <article>
+        <p>Redis (REmote DIctionary Server) is an in-memory data structure store used as a cache, database, message broker, and queue. The reason it shows up in nearly every system design interview is that it's not just a key-value cache — it ships with rich data structures that solve entire classes of problems (rate limiting, leaderboards, pub/sub) without extra infrastructure.</p>
+
+        <h2>Why it's fast</h2>
+        <ul>
+          <li>Everything lives in RAM (sub-millisecond operations); optionally persisted to disk for durability.</li>
+          <li><strong>Single-threaded</strong> execution model for command processing (Redis 6+ added threaded I/O for network reads/writes, but command execution itself is still single-threaded) — this means no locks, no race conditions between commands, and every command is effectively atomic.</li>
+        </ul>
+
+        <h2>Core data structures</h2>
+        <table>
+          <tr><th>Type</th><th>Commands</th><th>Use case</th></tr>
+          <tr><td><strong>String</strong></td><td><code>SET</code>, <code>GET</code>, <code>INCR</code>, <code>EXPIRE</code></td><td>Simple cache values, counters, feature flags, distributed locks</td></tr>
+          <tr><td><strong>Hash</strong></td><td><code>HSET</code>, <code>HGET</code>, <code>HGETALL</code></td><td>Object-like records (e.g. a user profile) without serializing/deserializing the whole blob to update one field</td></tr>
+          <tr><td><strong>List</strong></td><td><code>LPUSH</code>, <code>RPUSH</code>, <code>LPOP</code>, <code>BRPOP</code></td><td>Simple queues, recent-activity feeds (capped with <code>LTRIM</code>)</td></tr>
+          <tr><td><strong>Set</strong></td><td><code>SADD</code>, <code>SISMEMBER</code>, <code>SINTER</code></td><td>Unique collections — tags, "users who liked this post", mutual-friends via set intersection</td></tr>
+          <tr><td><strong>Sorted Set (ZSet)</strong></td><td><code>ZADD</code>, <code>ZRANGE</code>, <code>ZRANK</code>, <code>ZINCRBY</code></td><td>Leaderboards, priority queues, rate limiters (score = timestamp) — a skip-list under the hood gives O(log N) inserts and range queries</td></tr>
+          <tr><td><strong>Bitmap</strong></td><td><code>SETBIT</code>, <code>BITCOUNT</code></td><td>Extremely memory-efficient boolean flags at scale — e.g. daily active user tracking (1 bit per user per day)</td></tr>
+          <tr><td><strong>HyperLogLog</strong></td><td><code>PFADD</code>, <code>PFCOUNT</code></td><td>Approximate distinct-count (e.g. "unique visitors today") in ~12KB regardless of cardinality</td></tr>
+          <tr><td><strong>Stream</strong></td><td><code>XADD</code>, <code>XREAD</code>, <code>XGROUP</code></td><td>Append-only log with consumer groups — a lightweight Kafka-like use case</td></tr>
+          <tr><td><strong>Geo</strong></td><td><code>GEOADD</code>, <code>GEOSEARCH</code></td><td>"Find drivers within 5km" — built on sorted sets internally</td></tr>
+        </table>
+
+        <h2>Eviction policies</h2>
+        <p>Set via <code>maxmemory-policy</code>. Matters once your dataset can exceed available RAM.</p>
+        <table>
+          <tr><th>Policy</th><th>Behavior</th></tr>
+          <tr><td><code>noeviction</code></td><td>Return errors on writes once memory limit is hit — never silently drop data (default)</td></tr>
+          <tr><td><code>allkeys-lru</code></td><td>Evict the least-recently-used key across the whole keyspace</td></tr>
+          <tr><td><code>volatile-lru</code></td><td>Evict least-recently-used, but only among keys that have a TTL set</td></tr>
+          <tr><td><code>allkeys-lfu</code> / <code>volatile-lfu</code></td><td>Evict by access frequency instead of recency</td></tr>
+          <tr><td><code>volatile-ttl</code></td><td>Evict the key with the nearest expiration first</td></tr>
+          <tr><td><code>allkeys-random</code> / <code>volatile-random</code></td><td>Evict a random key — cheapest to compute</td></tr>
+        </table>
+        <p>Common production choice: <code>allkeys-lru</code> for a pure cache; <code>noeviction</code> when Redis is used as a source of truth (e.g. session store) where silently losing data is unacceptable.</p>
+
+        <h2>Pub/Sub</h2>
+        <p>Redis supports lightweight publish/subscribe messaging: a publisher sends a message to a channel, and every currently-subscribed client receives it in real time.</p>
+        <pre><code># Terminal A (subscriber)
+SUBSCRIBE notifications:user:42
+
+# Terminal B (publisher)
+PUBLISH notifications:user:42 "You have a new message"
+# → Terminal A instantly receives "You have a new message"
+</code></pre>
+        <div class="callout warn">
+          <div class="callout-title">Important limitation</div>
+          Classic Redis Pub/Sub is <strong>fire-and-forget</strong> — if a subscriber is offline when a message is published, it's lost forever; there's no persistence or replay. For "at-least-once" delivery or replay, use <strong>Redis Streams</strong> (<code>XADD</code>/<code>XREAD</code> with consumer groups) instead, which persists messages and tracks per-consumer read position.
+        </div>
+        <p><strong>Typical use cases:</strong> real-time chat fan-out to WebSocket servers, live notifications, invalidating in-process caches across multiple app instances ("cache-bust" broadcast), simple real-time dashboards.</p>
+
+        <h2>Persistence (so "in-memory" doesn't mean "disposable")</h2>
+        <ul>
+          <li><strong>RDB (snapshotting):</strong> periodic point-in-time dumps of the whole dataset to disk. Fast restarts, compact files, but you can lose data since the last snapshot.</li>
+          <li><strong>AOF (Append Only File):</strong> logs every write operation; replayed on restart. More durable (configurable fsync — every write, every second, or OS-controlled), larger files, slower restart than RDB.</li>
+          <li>Many production setups use both, or use AOF with periodic RDB snapshots for compaction.</li>
+        </ul>
+
+        <h2>Scaling Redis</h2>
+        <ul>
+          <li><strong>Replication:</strong> primary-replica setup for read scaling and failover; combined with <strong>Redis Sentinel</strong> for automatic primary failover detection/promotion.</li>
+          <li><strong>Redis Cluster:</strong> shards data across multiple nodes using hash slots (16,384 fixed slots, each key mapped via <code>CRC16(key) % 16384</code>) — a form of the consistent-hashing idea from the networking note, adapted to a fixed slot count for simpler resharding.</li>
+        </ul>
+
+        <h2>Live demo use cases (class walkthrough)</h2>
+        <div class="callout interview">
+          <div class="callout-title">1. Rate limiter with sorted sets (sliding window)</div>
+          <pre><code>ZADD  rate:user:42  <now_ts>  <unique_request_id>
+ZREMRANGEBYSCORE rate:user:42 0 (<now_ts> - window_ms)
+count = ZCARD rate:user:42
+if count > limit: reject
+</code></pre>
+          Every request adds a timestamped entry, old entries outside the window are trimmed, and the count of remaining entries is the current rate — all atomic within Redis.
+        </div>
+        <div class="callout interview">
+          <div class="callout-title">2. Leaderboard with ZSET</div>
+          <pre><code>ZADD leaderboard 1500 "alice"
+ZADD leaderboard 2200 "bob"
+ZREVRANGE leaderboard 0 9 WITHSCORES   # top 10
+ZRANK leaderboard "alice"              # alice's rank
+</code></pre>
+        </div>
+        <div class="callout interview">
+          <div class="callout-title">3. Distributed lock (simplified)</div>
+          <pre><code>SET lock:order:123 <owner_id> NX PX 5000
+-- NX: only set if not already held; PX 5000: auto-expires in 5s so a crashed
+-- holder doesn't lock the resource forever. (Production systems use the
+-- Redlock algorithm across multiple Redis nodes for stronger guarantees.)
+</code></pre>
+        </div>
+
+        <div class="callout">
+          <div class="callout-title">Interview takeaway</div>
+          When you say "I'll add a cache" in an interview, naming Redis specifically — and which data structure you'd use beyond a plain string — is a strong signal. "I'll use a Redis sorted set keyed by score for the leaderboard" reads very differently from "I'll cache it."
+        </div>
+      </article>
+
+      <div class="page-nav">
+        <a href="03-caching-strategies.html"><span class="dir">Previous</span>Caching Strategies</a>
+        <a class="next" href="../index.html"><span class="dir">Back</span>System Design overview</a>
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>
