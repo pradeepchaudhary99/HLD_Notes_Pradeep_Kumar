@@ -361,6 +361,68 @@ th {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, Helvetica, Arial, sans-serif;
 }
 
+/* ---------- Animated / interactive diagrams ---------- */
+@keyframes ringSweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.sweep-group {
+  transform-origin: 230px 190px;
+  animation: ringSweep 6s linear infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { r: 6; opacity: 1; }
+  50% { r: 9; opacity: 0.6; }
+}
+
+.pulse { animation: pulseDot 1.6s ease-in-out infinite; }
+
+.key-marker { transition: transform 0.8s cubic-bezier(.4,0,.2,1); }
+.key-line { transition: opacity 0.5s ease, stroke 0.5s ease; }
+.server-node { transition: opacity 0.5s ease; }
+.remap-badge { transition: opacity 0.4s ease; opacity: 0; }
+
+.demo-controls {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.demo-btn {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 7px 16px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.demo-btn:hover { background: rgba(91,157,255,0.22); }
+.demo-btn:active { transform: scale(0.97); }
+.demo-btn.danger { color: var(--danger); border-color: var(--danger); background: rgba(239,91,91,0.1); }
+.demo-btn.danger:hover { background: rgba(239,91,91,0.2); }
+.demo-btn.reset { color: var(--text-dim); border-color: var(--border); background: transparent; }
+
+.demo-status {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-faint);
+  margin-top: 10px;
+  min-height: 18px;
+}
+
+.demo-status .n { color: var(--accent-2); font-weight: 700; }
+
+.bar-anim rect { transition: height 0.6s ease, y 0.6s ease; }
+
 @media (max-width: 860px) {
   .app { flex-direction: column; }
   .sidebar { position: relative; width: 100%; height: auto; }
