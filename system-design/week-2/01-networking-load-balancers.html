@@ -140,6 +140,11 @@
         <div class="diagram">
           <svg viewBox="0 0 460 380" xmlns="http://www.w3.org/2000/svg" class="diagram-label">
             <circle cx="230" cy="190" r="150" fill="none" stroke="#262a35" stroke-width="2"/>
+            <!-- animated clockwise sweep -->
+            <g class="sweep-group">
+              <line x1="230" y1="190" x2="230" y2="40" stroke="#5b9dff" stroke-width="2" opacity="0.55"/>
+              <circle cx="230" cy="40" r="5" fill="#5b9dff"/>
+            </g>
             <!-- servers on ring at angles -->
             <!-- angle 0 = top, going clockwise -->
             <g>
@@ -156,7 +161,7 @@
             </g>
             <!-- keys -->
             <g>
-              <circle cx="330" cy="80" r="6" fill="#e7e9ee"/>
+              <circle cx="330" cy="80" r="6" fill="#e7e9ee" class="pulse"/>
               <text x="345" y="70" fill="#9aa1b1" font-size="10">key: user:42</text>
               <line x1="330" y1="80" x2="245" y2="52" stroke="#9aa1b1" stroke-width="1" stroke-dasharray="3 2"/>
             </g>
@@ -173,7 +178,7 @@
             <text x="230" y="190" text-anchor="middle" fill="#676e80" font-size="10">walk clockwise →</text>
             <text x="230" y="204" text-anchor="middle" fill="#676e80" font-size="10">first server wins</text>
           </svg>
-          <div class="diagram-caption">Fig 2. Each key maps to the next server clockwise. Removing Server B only reassigns keys between A and B — everything else is untouched.</div>
+          <div class="diagram-caption">Fig 2. The blue radial sweeps clockwise, continuously — the first server it touches after a key is that key's owner.</div>
         </div>
         <ul>
           <li>When a server is added or removed, only the keys between it and its immediate neighbor on the ring move — roughly <code>1/N</code> of all keys, not all of them.</li>
@@ -189,7 +194,125 @@
     only keys between ServerA(10) and ServerB(40) reassign to ServerC —
     keys between ServerB(40) and ServerC(75), and ServerC to ServerA, are untouched.
 </code></pre>
-        <p>Used in: Cassandra & DynamoDB (data partitioning across nodes), Memcached client libraries (which cache server owns a key), CDN request routing, and load balancers that need session affinity that survives scaling events.</p>
+
+        <h3>See it happen: remove a server</h3>
+        <p>Click the button below to simulate Server B going down. Watch how few keys actually move.</p>
+
+        <div class="diagram">
+          <svg viewBox="0 0 460 360" xmlns="http://www.w3.org/2000/svg" class="diagram-label" id="chRing">
+            <circle cx="230" cy="180" r="150" fill="none" stroke="#262a35" stroke-width="2"/>
+
+            <g class="server-node" id="nodeA">
+              <circle cx="230" cy="30" r="12" fill="#5b9dff"/>
+              <text x="230" y="14" text-anchor="middle" fill="#5b9dff" font-size="12" font-weight="700">A</text>
+            </g>
+            <g class="server-node" id="nodeB">
+              <circle cx="380" cy="180" r="12" fill="#34d399"/>
+              <text x="405" y="165" text-anchor="middle" fill="#34d399" font-size="12" font-weight="700">B</text>
+            </g>
+            <g class="server-node" id="nodeC">
+              <circle cx="230" cy="330" r="12" fill="#f5a623"/>
+              <text x="230" y="352" text-anchor="middle" fill="#f5a623" font-size="12" font-weight="700">C</text>
+            </g>
+
+            <!-- key near A: stays on A always -->
+            <g>
+              <circle cx="120" cy="70" r="6" fill="#e7e9ee"/>
+              <text x="70" y="58" fill="#9aa1b1" font-size="9">k1</text>
+              <line x1="120" y1="70" x2="221" y2="35" stroke="#676e80" stroke-width="1" stroke-dasharray="3 2"/>
+            </g>
+            <!-- key near A/B boundary: also stays on A -->
+            <g>
+              <circle cx="280" cy="50" r="6" fill="#e7e9ee"/>
+              <text x="300" y="40" fill="#9aa1b1" font-size="9">k2</text>
+              <line x1="280" y1="50" x2="238" y2="34" stroke="#676e80" stroke-width="1" stroke-dasharray="3 2"/>
+            </g>
+            <!-- key owned by B: THIS ONE MOVES to C when B is removed -->
+            <g id="keyToB">
+              <circle cx="345" cy="260" r="6" fill="#e7e9ee" class="key-marker" id="k3dot"/>
+              <text x="365" y="278" fill="#9aa1b1" font-size="9">k3</text>
+              <line id="k3line" x1="345" y1="260" x2="373" y2="192" stroke="#676e80" stroke-width="1" stroke-dasharray="3 2" class="key-line"/>
+              <text id="k3badge" x="345" y="245" text-anchor="middle" fill="#ef5b5b" font-size="9" font-weight="700" class="remap-badge">→ reassigned to C</text>
+            </g>
+            <!-- key near C: stays on C -->
+            <g>
+              <circle cx="120" cy="290" r="6" fill="#e7e9ee"/>
+              <text x="75" y="305" fill="#9aa1b1" font-size="9">k4</text>
+              <line x1="120" y1="290" x2="221" y2="325" stroke="#676e80" stroke-width="1" stroke-dasharray="3 2"/>
+            </g>
+          </svg>
+          <div class="demo-controls">
+            <button class="demo-btn danger" onclick="chDemoRemove()">Remove Server B</button>
+            <button class="demo-btn reset" onclick="chDemoReset()">Reset</button>
+          </div>
+          <div class="demo-status" id="chStatus">4 keys, 3 servers — every key has a home.</div>
+          <div class="diagram-caption">Fig 3. Only <strong>k3</strong> (the key between B and its neighbor) moves. k1, k2, and k4 never notice B was removed.</div>
+        </div>
+
+        <script>
+          function chDemoRemove() {
+            document.getElementById('nodeB').style.opacity = '0.15';
+            document.getElementById('k3dot').style.fill = '#f5a623';
+            document.getElementById('k3line').setAttribute('x2', '221');
+            document.getElementById('k3line').setAttribute('y2', '325');
+            document.getElementById('k3line').style.stroke = '#f5a623';
+            document.getElementById('k3badge').style.opacity = '1';
+            document.getElementById('chStatus').innerHTML = 'Server B removed — <span class="n">only 1 of 4 keys</span> (25%) had to move, to Server C. k1, k2, k4 never noticed.';
+          }
+          function chDemoReset() {
+            document.getElementById('nodeB').style.opacity = '1';
+            document.getElementById('k3dot').style.fill = '#e7e9ee';
+            document.getElementById('k3line').setAttribute('x2', '373');
+            document.getElementById('k3line').setAttribute('y2', '192');
+            document.getElementById('k3line').style.stroke = '#676e80';
+            document.getElementById('k3badge').style.opacity = '0';
+            document.getElementById('chStatus').innerHTML = '4 keys, 3 servers — every key has a home.';
+          }
+        </script>
+
+        <h3>Why this matters: consistent hashing vs. plain modulo</h3>
+        <p>The table below plays out the same "remove one server" event under both schemes for 6 example keys — this is the number interviewers actually want to hear.</p>
+        <table>
+          <tr><th>Key</th><th>Modulo, N=3</th><th>Modulo, N=2 (B removed)</th><th>Consistent hashing, 3 servers</th><th>Consistent hashing (B removed)</th></tr>
+          <tr><td>k1</td><td>A</td><td style="color:#ef5b5b">B <em>(moved)</em></td><td>A</td><td style="color:#34d399">A <em>(same)</em></td></tr>
+          <tr><td>k2</td><td>B</td><td style="color:#ef5b5b">A <em>(moved)</em></td><td>A</td><td style="color:#34d399">A <em>(same)</em></td></tr>
+          <tr><td>k3</td><td>C</td><td style="color:#ef5b5b">B <em>(moved)</em></td><td>B</td><td style="color:#ef5b5b">C <em>(moved)</em></td></tr>
+          <tr><td>k4</td><td>A</td><td style="color:#34d399">A <em>(same)</em></td><td>C</td><td style="color:#34d399">C <em>(same)</em></td></tr>
+          <tr><td>k5</td><td>B</td><td style="color:#ef5b5b">A <em>(moved)</em></td><td>A</td><td style="color:#34d399">A <em>(same)</em></td></tr>
+          <tr><td>k6</td><td>C</td><td style="color:#ef5b5b">B <em>(moved)</em></td><td>C</td><td style="color:#34d399">C <em>(same)</em></td></tr>
+        </table>
+        <div class="callout warn">
+          <div class="callout-title">The headline number</div>
+          Plain modulo hashing reshuffled <strong>5 of 6 keys (83%)</strong> from a single server leaving. Consistent hashing reshuffled <strong>1 of 6 (17%)</strong> — and in general, only about <code>1/N</code> of keys move, regardless of how large the cluster is.
+        </div>
+
+        <h3>Real-world applications of consistent hashing</h3>
+        <div class="grid-2">
+          <div class="card">
+            <h4>Amazon DynamoDB</h4>
+            <p>The original 2007 <em>Dynamo</em> paper introduced consistent hashing for exactly this problem: partitioning key-value data across storage nodes so the cluster can grow or shrink without a full data reshuffle. DynamoDB's successor system still partitions this way.</p>
+          </div>
+          <div class="card">
+            <h4>Apache Cassandra</h4>
+            <p>Each node owns a range ("token range") on a hash ring. Adding a node means it claims a slice of the ring from its neighbors — only data in that slice needs to move, not the whole cluster's data.</p>
+          </div>
+          <div class="card">
+            <h4>Memcached client libraries</h4>
+            <p>Memcached servers know nothing about each other — the <strong>client</strong> decides which server owns a key. Libraries like <code>libketama</code> use consistent hashing so that when a memcached node is added or removed, most keys still map to the same server, avoiding a mass cache-miss stampede.</p>
+          </div>
+          <div class="card">
+            <h4>CDN request routing</h4>
+            <p>Consistent hashing was originally proposed (Karger et al., 1997) for web caching — routing a request for a given URL to the same cache node consistently, even as cache servers are added/removed, to maximize cache hit rates.</p>
+          </div>
+          <div class="card">
+            <h4>Envoy / service-mesh load balancing</h4>
+            <p>Envoy's <strong>ring hash</strong> load balancing policy uses consistent hashing to route requests with the same key (e.g. a session ID) to the same upstream instance — useful for sticky sessions or maximizing cache locality in a microservices deployment.</p>
+          </div>
+          <div class="card">
+            <h4>Distributed hash tables (DHTs)</h4>
+            <p>Peer-to-peer systems like <strong>Chord</strong> and BitTorrent's DHT use a ring structure directly descended from consistent hashing to let any peer look up which peer holds a given piece of data in O(log n) hops.</p>
+          </div>
+        </div>
 
         <h2>High availability of the load balancer itself</h2>
         <p>The LB is a potential single point of failure — solved with an <strong>active-passive pair</strong> (floating/virtual IP failover via something like keepalived/VRRP) or DNS-based load balancing across multiple LB instances, often layered: DNS → a pool of L4 LBs → L7 LBs → application servers.</p>
