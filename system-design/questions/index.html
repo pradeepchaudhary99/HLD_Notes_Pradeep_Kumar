@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Practice Questions — Class Notes</title>
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <a href="../../index.html" class="sidebar-brand">📘 Class Notes</a>
+    <div class="sidebar-tagline">System Design & Backend Engineering</div>
+    <nav>
+      <div class="week-block">
+        <div class="week-title">Course</div>
+        <ul>
+          <li><a href="../../index.html">Home</a></li>
+          <li><a href="../index.html">System Design — All Weeks</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 1 — HLD Foundations</div>
+        <ul>
+          <li><a href="../week-1/01-hld-approach.html">Approaching an HLD Interview</a></li>
+          <li><a href="../week-1/02-cap-theorem.html">CAP Theorem & Consistency</a></li>
+          <li><a href="../week-1/03-sql-vs-nosql.html">SQL vs NoSQL</a></li>
+          <li><a href="../week-1/04-estimation.html">Back-of-Envelope Estimation</a></li>
+          <li><a href="../week-1/05-api-data-model.html">API Design & Data Model</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 2 — Core Infra Building Blocks</div>
+        <ul>
+          <li><a href="../week-2/01-networking-load-balancers.html">Load Balancers & Networking</a></li>
+          <li><a href="../week-2/02-cdn-dns-reverse-proxy.html">CDN, DNS & Reverse Proxies</a></li>
+          <li><a href="../week-2/03-caching-strategies.html">Caching Strategies</a></li>
+          <li><a href="../week-2/04-redis-deep-dive.html">Redis Deep Dive</a></li>
+          <li><a href="../week-2/05-partitioning-sharding.html">Partitioning & Sharding</a></li>
+          <li><a href="../week-2/06-leader-follower-election.html">Leader-Follower & Election</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Practice Questions</div>
+        <ul>
+          <li><a href="index.html" class="active">All Questions</a></li>
+          <li><a href="url-shortener.html">URL Shortener</a></li>
+          <li><a href="movie-ticketing-platform.html">Movie / Event Ticketing</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="sidebar-footer">Updated as classes progress.</div>
+  </aside>
+
+  <main class="content">
+    <div class="content-inner">
+      <div class="breadcrumb"><a href="../../index.html">Home</a> / <a href="../index.html">System Design</a> / Practice Questions</div>
+      <div class="home-hero">
+        <h1>Practice Questions</h1>
+        <p>Full worked HLD write-ups — the kind of end-to-end answer you'd actually want to give in a 45-minute interview. Each one runs through the whole framework from the <a href="../week-1/01-hld-approach.html">approach note</a>: requirements, estimation, API, architecture, deep dives, trade-offs, failure handling, and interviewer cross-questions to quiz yourself with.</p>
+      </div>
+
+      <ul class="topic-list">
+        <li><a href="url-shortener.html"><span><span class="topic-title">URL Shortener</span><span class="topic-desc">Bitly-style link shortener — key pool generation, cache-aside at scale, polyglot persistence, 19K QPS redirect path</span></span><span class="arrow">→</span></a></li>
+        <li><a href="movie-ticketing-platform.html"><span><span class="topic-title">Movie / Event Ticketing Platform</span><span class="topic-desc">BookMyShow/Ticketmaster-style booking system — seat locking under contention, overselling prevention, flash-sale traffic</span></span><span class="arrow">→</span></a></li>
+      </ul>
+
+      <div class="callout" style="margin-top:30px;">
+        <div class="callout-title">How to use these</div>
+        Cover the answer, give yourself 45 minutes, and write your own version first — using the 6-step framework from Week 1. Then open the full write-up and compare: what did you miss, what would you have gotten wrong under interviewer cross-questioning, and which trade-offs did you not think to name out loud.
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>
