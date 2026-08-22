@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Seat Booking with Redis Sorted Sets</title>
+<style>
+  :root{
+    --bg:#0b0f1a;
+    --panel:#121826;
+    --panel2:#161d2e;
+    --border:#26314a;
+    --cyan:#00e5ff;
+    --magenta:#ff2fd6;
+    --yellow:#ffe600;
+    --green:#00ff8c;
+    --orange:#ff9d00;
+    --red:#ff3b5c;
+    --grey:#4a5468;
+    --text:#e8ecf7;
+    --muted:#8b95b3;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Segoe UI', Roboto, Arial, sans-serif;
+    background:
+      radial-gradient(circle at 15% 10%, #1a2138 0%, transparent 45%),
+      radial-gradient(circle at 85% 90%, #1a1030 0%, transparent 45%),
+      var(--bg);
+    color:var(--text);
+    min-height:100vh;
+    padding:20px;
+  }
+  h1{
+    text-align:center;
+    font-size:26px;
+    margin:0 0 4px;
+    background:linear-gradient(90deg,var(--cyan),var(--magenta));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    letter-spacing:0.5px;
+  }
+  .subtitle{
+    text-align:center;
+    color:var(--muted);
+    font-size:14px;
+    margin-bottom:22px;
+  }
+  .subtitle b{color:var(--yellow);}
+  .layout{
+    display:grid;
+    grid-template-columns: 1.15fr 0.85fr;
+    gap:18px;
+    max-width:1300px;
+    margin:0 auto;
+  }
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:18px;
+    box-shadow:0 8px 30px rgba(0,0,0,0.35);
+  }
+  .panel h2{
+    margin:0 0 12px;
+    font-size:15px;
+    color:var(--cyan);
+    text-transform:uppercase;
+    letter-spacing:1px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .panel h2 .dot{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--cyan); box-shadow:0 0 8px var(--cyan);
+  }
+
+  /* SCREEN + SEATS */
+  .screen{
+    width:88%;
+    margin:0 auto 26px;
+    height:22px;
+    background:linear-gradient(180deg, rgba(0,229,255,0.55), rgba(0,229,255,0.05));
+    border-radius:50%/12px;
+    box-shadow:0 10px 25px -5px var(--cyan);
+    text-align:center;
+    font-size:11px;
+    letter-spacing:4px;
+    color:#dffbff;
+    line-height:22px;
+  }
+  .seatmap{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+    align-items:center;
+    margin-bottom:14px;
+  }
+  .row{display:flex; align-items:center; gap:8px;}
+  .row-label{
+    width:16px; color:var(--muted); font-size:12px; font-weight:600;
+  }
+  .seat{
+    position:relative;
+    width:30px;height:30px;
+    border-radius:8px 8px 4px 4px;
+    background:#1c2438;
+    border:1.5px solid var(--border);
+    cursor:pointer;
+    transition:transform .12s ease, box-shadow .2s ease, background .25s ease, border-color .25s ease;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .seat:hover{ transform:translateY(-2px); }
+  .seat.available{ background:#132a22; border-color:var(--green); box-shadow:0 0 8px -2px var(--green); }
+  .seat.held-you{ background:#3a3200; border-color:var(--yellow); box-shadow:0 0 14px var(--yellow); animation:pulse 1s infinite; }
+  .seat.held-other{ background:#3a1f00; border-color:var(--orange); box-shadow:0 0 14px var(--orange); }
+  .seat.booked{ background:#3a0a16; border-color:var(--red); cursor:not-allowed; box-shadow:none; opacity:0.85;}
+  .seat.flash{ animation:flashred .5s ease; }
+  @keyframes pulse{ 0%,100%{filter:brightness(1);} 50%{filter:brightness(1.35);} }
+  @keyframes flashred{ 0%{background:var(--red);} 100%{background:#3a1f00;} }
+  .seat .ring{
+    position:absolute; inset:-4px;
+    border-radius:10px;
+    border:2px solid transparent;
+    border-top-color:var(--yellow);
+    animation:spin 1.6s linear infinite;
+    opacity:.9;
+  }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  .legend{
+    display:flex; flex-wrap:wrap; gap:14px; justify-content:center;
+    font-size:12px; color:var(--muted); margin-top:6px;
+  }
+  .legend span{ display:flex; align-items:center; gap:6px; }
+  .swatch{ width:12px;height:12px;border-radius:3px; display:inline-block; }
+
+  .controls{
+    display:flex; gap:10px; justify-content:center; margin-top:16px; flex-wrap:wrap;
+  }
+  button{
+    font-family:inherit; font-size:13px; font-weight:600;
+    border:none; border-radius:8px; padding:10px 16px;
+    cursor:pointer; color:#0b0f1a;
+    transition:transform .12s ease, filter .2s ease;
+  }
+  button:hover{ transform:translateY(-1px); filter:brightness(1.1); }
+  button:disabled{ opacity:0.35; cursor:not-allowed; transform:none; }
+  #confirmBtn{ background:linear-gradient(90deg,var(--green),#00c2ff); }
+  #releaseBtn{ background:linear-gradient(90deg,#ffb020,var(--orange)); }
+  #concurrentBtn{ background:linear-gradient(90deg,var(--magenta),#ff5c8a); color:#fff; }
+  #resetBtn{ background:linear-gradient(90deg,var(--grey),#6b7799); color:#fff; }
+
+  .selected-info{
+    text-align:center; font-size:13px; color:var(--muted); min-height:18px; margin-top:10px;
+  }
+  .selected-info b{ color:var(--yellow); }
+
+  /* REDIS PANEL */
+  .zset{
+    background:var(--panel2);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px;
+    min-height:170px;
+    max-height:230px;
+    overflow-y:auto;
+  }
+  .zset-title{ font-size:11px; color:var(--muted); margin-bottom:8px; }
+  .zset-empty{ color:var(--muted); font-size:12px; text-align:center; padding:20px 0; }
+  .zentry{
+    display:grid;
+    grid-template-columns: 50px 1fr 70px;
+    align-items:center;
+    gap:8px;
+    background:#0f1526;
+    border:1px solid var(--border);
+    border-left:3px solid var(--yellow);
+    border-radius:6px;
+    padding:6px 10px;
+    margin-bottom:6px;
+    font-size:12px;
+    animation:slideIn .25s ease;
+  }
+  .zentry.other{ border-left-color:var(--orange); }
+  .zentry.removing{ animation:slideOut .3s ease forwards; }
+  @keyframes slideIn{ from{opacity:0; transform:translateX(-8px);} to{opacity:1; transform:translateX(0);} }
+  @keyframes slideOut{ to{opacity:0; transform:translateX(12px); height:0; margin:0; padding:0;} }
+  .zentry .member{ font-weight:700; color:var(--cyan); }
+  .zentry .score{ color:var(--muted); font-size:10px; }
+  .ttlbar{ height:5px; border-radius:3px; background:#26314a; overflow:hidden; }
+  .ttlbar-fill{ height:100%; background:linear-gradient(90deg,var(--green),var(--yellow),var(--red)); transition:width .2s linear; }
+
+  .explainer{
+    font-size:12.5px; color:var(--muted); line-height:1.55; margin-top:12px;
+    background:#0f1526; border:1px solid var(--border); border-radius:10px; padding:12px;
+  }
+  .explainer b{ color:var(--text); }
+  .explainer code{ color:var(--cyan); background:#0b1120; padding:1px 5px; border-radius:4px; }
+
+  /* TERMINAL LOG */
+  .terminal{
+    background:#080b12;
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:10px 12px;
+    height:190px;
+    overflow-y:auto;
+    font-family:'Consolas','Courier New',monospace;
+    font-size:12px;
+    line-height:1.6;
+  }
+  .terminal .l1{ color:var(--muted); }
+  .terminal .cmd{ color:var(--cyan); }
+  .terminal .arg{ color:var(--yellow); }
+  .terminal .ok{ color:var(--green); }
+  .terminal .fail{ color:var(--red); }
+  .terminal .info{ color:#8fa8ff; }
+  .terminal div{ white-space:pre-wrap; word-break:break-word; margin-bottom:2px;}
+
+  .toast{
+    position:fixed; top:20px; left:50%; transform:translateX(-50%);
+    background:#1c1030; border:1px solid var(--magenta);
+    color:#fff; padding:10px 18px; border-radius:10px;
+    font-size:13px; box-shadow:0 0 20px rgba(255,47,214,0.4);
+    opacity:0; transition:opacity .3s ease, top .3s ease;
+    pointer-events:none; z-index:50;
+  }
+  .toast.show{ opacity:1; top:34px; }
+
+  .code-toggle{
+    margin-top:10px; text-align:center;
+  }
+  .code-toggle a{ color:var(--cyan); font-size:12px; cursor:pointer; text-decoration:underline; }
+  pre.code{
+    display:none;
+    background:#080b12; border:1px solid var(--border); border-radius:10px;
+    padding:12px; font-size:11.5px; margin-top:10px; overflow-x:auto;
+    font-family:'Consolas','Courier New',monospace; color:#cfe6ff; line-height:1.55;
+  }
+  pre.code .kw{color:#ff79c6;} pre.code .tp{color:#8be9fd;} pre.code .cm{color:#6272a4;} pre.code .st{color:#f1fa8c;}
+
+  @media (max-width: 950px){
+    .layout{ grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🎬 Seat Booking Concurrency, Powered by a Redis Sorted Set</h1>
+<div class="subtitle">Click a seat to place a <b>hold</b>. Watch it appear in the sorted set, count down, and either get <b>confirmed</b> or <b>expire back to available</b>.</div>
+
+<div class="layout">
+
+  <!-- LEFT: SEAT MAP -->
+  <div class="panel">
+    <h2><span class="dot"></span>Seat Map</h2>
+    <div class="screen">S C R E E N</div>
+    <div class="seatmap" id="seatmap"></div>
+    <div class="legend">
+      <span><i class="swatch" style="background:#132a22;border:1px solid var(--green)"></i>Available</span>
+      <span><i class="swatch" style="background:#3a3200;border:1px solid var(--yellow)"></i>Held by you</span>
+      <span><i class="swatch" style="background:#3a1f00;border:1px solid var(--orange)"></i>Held by others</span>
+      <span><i class="swatch" style="background:#3a0a16;border:1px solid var(--red)"></i>Booked</span>
+    </div>
+    <div class="controls">
+      <button id="confirmBtn" disabled>✓ Confirm Booking</button>
+      <button id="releaseBtn" disabled>✕ Release Hold</button>
+      <button id="concurrentBtn">⚡ Simulate 2nd User Racing You</button>
+      <button id="resetBtn">↻ Reset Demo</button>
+    </div>
+    <div class="selected-info" id="selInfo">Select a seat to begin.</div>
+
+    <div class="code-toggle"><a id="codeToggle">▸ view backend hold logic (Java / Lettuce)</a></div>
+    <pre class="code" id="codeBlock"><span class="cm">// Atomic hold — succeeds only if seat isn't already locked</span>
+<span class="tp">boolean</span> holdSeat(<span class="tp">String</span> seatId, <span class="tp">String</span> userId) {
+    <span class="tp">long</span> expiresAt = System.currentTimeMillis() + HOLD_TTL_MS;
+    <span class="tp">Long</span> added = redis.zadd(
+        <span class="st">"seat_holds:showtime:42"</span>,
+        <span class="tp">ZAddArgs</span>.<span class="kw">Builder</span>.nx(),   <span class="cm">// NX = only if absent</span>
+        expiresAt,                    <span class="cm">// score = expiry timestamp</span>
+        seatId                        <span class="cm">// member</span>
+    );
+    <span class="kw">return</span> added != <span class="tp">null</span> && added == 1L;   <span class="cm">// 1 = lock acquired, 0 = already held</span>
+}
+
+<span class="cm">// Sweeper: cheaply finds only the holds that expired (sorted by score!)</span>
+<span class="tp">void</span> releaseExpiredHolds() {
+    <span class="tp">long</span> now = System.currentTimeMillis();
+    <span class="tp">Set</span>&lt;<span class="tp">String</span>&gt; expired = redis.zrangebyscore(<span class="st">"seat_holds:showtime:42"</span>, 0, now);
+    <span class="kw">if</span> (!expired.isEmpty()) {
+        redis.zremrangebyscore(<span class="st">"seat_holds:showtime:42"</span>, 0, now);
+    }
+}
+
+<span class="cm">// Confirm: drop the hold, persist the booking</span>
+<span class="tp">void</span> confirmBooking(<span class="tp">String</span> seatId) {
+    redis.zrem(<span class="st">"seat_holds:showtime:42"</span>, seatId);
+    db.markSeatBooked(seatId);
+}</pre>
+  </div>
+
+  <!-- RIGHT: REDIS -->
+  <div class="panel">
+    <h2><span class="dot" style="background:var(--magenta);box-shadow:0 0 8px var(--magenta)"></span>Redis: <code style="color:var(--cyan)">ZSET seat_holds</code></h2>
+    <div class="zset-title">member = seatId &nbsp;·&nbsp; score = hold-expiry timestamp &nbsp;·&nbsp; sorted ascending by score</div>
+    <div class="zset" id="zsetPanel"><div class="zset-empty">Sorted set is empty — no active holds</div></div>
+
+    <div class="explainer">
+      Because entries are <b>ordered by expiry score</b>, a background sweeper never scans the whole set —
+      it just asks <code>ZRANGEBYSCORE seat_holds 0 now</code>, which is O(log N + M). The <code>NX</code> flag on
+      <code>ZADD</code> makes "check-and-lock" <b>atomic</b>, so two users clicking the same seat in the same millisecond
+      can't both win — Redis's single-threaded execution guarantees only one <code>ZADD</code> returns <b>1</b>.
+    </div>
+
+    <h2 style="margin-top:16px;"><span class="dot" style="background:var(--green);box-shadow:0 0 8px var(--green)"></span>Command Log</h2>
+    <div class="terminal" id="terminal"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const ROWS = ['A','B','C','D','E','F'];
+const COLS = 8;
+const HOLD_TTL_MS = 10000; // sped up for demo (represents e.g. 5 min in real life)
+
+const seats = {};        // seatId -> status: available | held-you | held-other | booked
+const holds = {};        // seatId -> {expiry, holder}
+let selectedSeat = null;
+let concurrentSeatTarget = null;
+
+const seatmapEl = document.getElementById('seatmap');
+const zsetPanel = document.getElementById('zsetPanel');
+const terminal = document.getElementById('terminal');
+const selInfo = document.getElementById('selInfo');
+const confirmBtn = document.getElementById('confirmBtn');
+const releaseBtn = document.getElementById('releaseBtn');
+const toastEl = document.getElementById('toast');
+
+function seatId(r,c){ return r + (c+1); }
+
+function initSeats(){
+  seatmapEl.innerHTML = '';
+  ROWS.forEach(r=>{
+    const row = document.createElement('div');
+    row.className='row';
+    const label = document.createElement('div');
+    label.className='row-label'; label.textContent=r;
+    row.appendChild(label);
+    for(let c=0;c<COLS;c++){
+      const id = seatId(r,c);
+      // pre-book a few seats for realism
+      seats[id] = (Math.random() < 0.12) ? 'booked' : 'available';
+      const el = document.createElement('div');
+      el.className = 'seat ' + seats[id];
+      el.dataset.id = id;
+      el.title = id;
+      el.onclick = ()=>onSeatClick(id);
+      row.appendChild(el);
+    }
+    seatmapEl.appendChild(row);
+  });
+  renderAll();
+}
+
+function seatEl(id){ return seatmapEl.querySelector(`[data-id="${id}"]`); }
+
+function log(html){
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  terminal.appendChild(d);
+  terminal.scrollTop = terminal.scrollHeight;
+}
+
+function toast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>toastEl.classList.remove('show'), 2200);
+}
+
+function fmtTime(ts){
+  const d = new Date(ts);
+  return d.toLocaleTimeString('en-US',{hour12:false}) + '.' + String(d.getMilliseconds()).padStart(3,'0');
+}
+
+function onSeatClick(id){
+  const status = seats[id];
+  if(status === 'booked') return;
+  if(status === 'held-other'){
+    flashFail(id, 'held by another user');
+    return;
+  }
+  if(status === 'held-you'){
+    selectedSeat = id;
+    renderSelection();
+    return;
+  }
+  // available -> attempt hold
+  attemptHold(id, 'you');
+}
+
+function attemptHold(id, holder){
+  const expiry = Date.now() + HOLD_TTL_MS;
+  log(`<span class="l1">></span> <span class="cmd">ZADD</span> seat_holds <span class="arg">NX</span> ${expiry} <span class="arg">"${id}"</span> <span class="l1">&nbsp;// by ${holder==='you'?'YOU':'other user'}</span>`);
+
+  if(holds[id]){
+    log(`<span class="fail">(integer) 0</span>  <span class="l1">-- lock NOT acquired, "${id}" already in sorted set</span>`);
+    flashFail(id, holder==='you' ? 'already locked' : 'race lost');
+    return false;
+  }
+  holds[id] = { expiry, holder };
+  seats[id] = holder === 'you' ? 'held-you' : 'held-other';
+  log(`<span class="ok">(integer) 1</span>  <span class="l1">-- lock acquired, expires ${fmtTime(expiry)}</span>`);
+  if(holder==='you'){
+    selectedSeat = id;
+    toast(`Hold placed on ${id}. You have ${HOLD_TTL_MS/1000}s to confirm.`);
+  }
+  renderAll();
+  return true;
+}
+
+function flashFail(id, reason){
+  const el = seatEl(id);
+  if(el){ el.classList.remove('flash'); void el.offsetWidth; el.classList.add('flash'); }
+  toast(`Seat ${id}: ${reason}`);
+}
+
+function confirmSeat(id){
+  if(!holds[id] || holds[id].holder !== 'you') return;
+  log(`<span class="l1">></span> <span class="cmd">ZREM</span> seat_holds <span class="arg">"${id}"</span>`);
+  log(`<span class="ok">(integer) 1</span>  <span class="l1">-- hold removed</span>`);
+  log(`<span class="l1">></span> <span class="cmd">SADD</span> booked_seats <span class="arg">"${id}"</span>  <span class="info">// persisted to DB / event emitted</span>`);
+  delete holds[id];
+  seats[id] = 'booked';
+  if(selectedSeat === id) selectedSeat = null;
+  toast(`✅ Seat ${id} booked!`);
+  renderAll();
+}
+
+function releaseSeat(id, silent){
+  if(!holds[id]) return;
+  if(!silent){
+    log(`<span class="l1">></span> <span class="cmd">ZREM</span> seat_holds <span class="arg">"${id}"</span>  <span class="l1">// user cancelled</span>`);
+    log(`<span class="ok">(integer) 1</span>`);
+  }
+  delete holds[id];
+  seats[id] = 'available';
+  if(selectedSeat === id) selectedSeat = null;
+  renderAll();
+}
+
+function expireSeat(id){
+  seats[id] = 'available';
+  if(selectedSeat === id) selectedSeat = null;
+  delete holds[id];
+}
+
+confirmBtn.onclick = ()=>{ if(selectedSeat) confirmSeat(selectedSeat); };
+releaseBtn.onclick = ()=>{ if(selectedSeat) releaseSeat(selectedSeat); };
+
+document.getElementById('concurrentBtn').onclick = ()=>{
+  const yours = Object.keys(holds).filter(id=>holds[id].holder==='you');
+  let target = yours[0];
+  if(!target){
+    const avail = Object.keys(seats).filter(id=>seats[id]==='available');
+    if(avail.length===0){ toast('No available seats to race on!'); return; }
+    target = avail[Math.floor(Math.random()*avail.length)];
+    log(`<span class="l1">— You place a hold first —</span>`);
+    attemptHold(target, 'you');
+  }
+  setTimeout(()=>{
+    log(`<span class="l1">— Meanwhile, another user tries the SAME seat —</span>`);
+    attemptHold(target, 'other');
+  }, 500);
+};
+
+document.getElementById('resetBtn').onclick = ()=>{
+  Object.keys(holds).forEach(k=>delete holds[k]);
+  selectedSeat = null;
+  terminal.innerHTML='';
+  log(`<span class="info">-- demo reset --</span>`);
+  initSeats();
+};
+
+function renderAll(){
+  Object.keys(seats).forEach(id=>{
+    const el = seatEl(id);
+    if(!el) return;
+    el.className = 'seat ' + seats[id];
+    el.innerHTML = '';
+    if(seats[id]==='held-you'){
+      const ring = document.createElement('div');
+      ring.className='ring';
+      el.appendChild(ring);
+    }
+  });
+  renderZset();
+  renderSelection();
+}
+
+function renderSelection(){
+  if(selectedSeat && holds[selectedSeat] && holds[selectedSeat].holder==='you'){
+    const remaining = Math.max(0, holds[selectedSeat].expiry - Date.now());
+    selInfo.innerHTML = `Seat <b>${selectedSeat}</b> held by you — expires in <b>${(remaining/1000).toFixed(1)}s</b> unless confirmed.`;
+    confirmBtn.disabled = false;
+    releaseBtn.disabled = false;
+  } else {
+    selInfo.textContent = 'Select an available seat to place a hold.';
+    confirmBtn.disabled = true;
+    releaseBtn.disabled = true;
+  }
+}
+
+function renderZset(){
+  const entries = Object.keys(holds)
+    .map(id=>({id, ...holds[id]}))
+    .sort((a,b)=>a.expiry-b.expiry);
+
+  if(entries.length===0){
+    zsetPanel.innerHTML = '<div class="zset-empty">Sorted set is empty — no active holds</div>';
+    return;
+  }
+  zsetPanel.innerHTML = '';
+  entries.forEach(e=>{
+    const remaining = Math.max(0, e.expiry - Date.now());
+    const pct = Math.max(0, Math.min(100, (remaining/HOLD_TTL_MS)*100));
+    const row = document.createElement('div');
+    row.className = 'zentry' + (e.holder==='other' ? ' other' : '');
+    row.innerHTML = `
+      <div class="member">${e.id}</div>
+      <div>
+        <div class="ttlbar"><div class="ttlbar-fill" style="width:${pct}%"></div></div>
+        <div class="score">score(expiry): ${e.expiry} &nbsp;·&nbsp; ${e.holder==='you'?'held by you':'held by other'}</div>
+      </div>
+      <div style="text-align:right; color:var(--muted)">${(remaining/1000).toFixed(1)}s</div>
+    `;
+    zsetPanel.appendChild(row);
+  });
+}
+
+// tick: countdown + expiry sweep (ZRANGEBYSCORE simulation)
+setInterval(()=>{
+  const now = Date.now();
+  const expired = Object.keys(holds).filter(id=>holds[id].expiry <= now);
+  if(expired.length){
+    log(`<span class="l1">></span> <span class="cmd">ZRANGEBYSCORE</span> seat_holds <span class="arg">0 ${now}</span>  <span class="l1">// sweeper tick</span>`);
+    log(`<span class="info">1) "${expired.join('"\n2) "')}"</span>`);
+    log(`<span class="l1">></span> <span class="cmd">ZREMRANGEBYSCORE</span> seat_holds <span class="arg">0 ${now}</span>`);
+    log(`<span class="ok">(integer) ${expired.length}</span>  <span class="l1">-- expired hold(s) evicted, seat(s) freed</span>`);
+    expired.forEach(id=>{
+      const wasYours = holds[id].holder==='you';
+      expireSeat(id);
+      if(wasYours) toast(`⏱ Your hold on ${id} expired`);
+    });
+  }
+  renderAll();
+}, 300);
+
+document.getElementById('codeToggle').onclick = function(){
+  const block = document.getElementById('codeBlock');
+  const open = block.style.display === 'block';
+  block.style.display = open ? 'none' : 'block';
+  this.textContent = (open?'▸':'▾') + ' view backend hold logic (Java / Lettuce)';
+};
+
+initSeats();
+log('<span class="info">-- Redis connection ready. seat_holds ZSET initialized empty. --</span>');
+</script>
+</body>
+</html>

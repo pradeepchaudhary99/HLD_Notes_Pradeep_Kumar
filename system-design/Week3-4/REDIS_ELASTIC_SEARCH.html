@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seat Booking System — Redis & Elasticsearch Command Reference</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --panel: #171727;
+    --panel-2: #1e1e33;
+    --border: #2c2c45;
+    --text: #e8e8f5;
+    --muted: #9797b8;
+    --purple: #a78bfa;
+    --pink: #f472b6;
+    --cyan: #22d3ee;
+    --green: #34d399;
+    --yellow: #fbbf24;
+    --orange: #fb923c;
+    --red: #f87171;
+    --blue: #60a5fa;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: linear-gradient(160deg, #0f0f1a 0%, #14142a 100%);
+    color: var(--text);
+    font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.6;
+  }
+
+  .wrap {
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 32px 20px 100px;
+  }
+
+  header.hero {
+    background: linear-gradient(120deg, #7c3aed 0%, #db2777 50%, #f97316 100%);
+    border-radius: 20px;
+    padding: 40px 32px;
+    margin-bottom: 32px;
+    box-shadow: 0 20px 60px rgba(124, 58, 237, 0.35);
+  }
+
+  header.hero h1 {
+    margin: 0 0 8px;
+    font-size: 2rem;
+    color: white;
+    letter-spacing: -0.02em;
+  }
+
+  header.hero p {
+    margin: 0;
+    color: rgba(255,255,255,0.92);
+    font-size: 1.05rem;
+  }
+
+  .badges { margin-top: 18px; display: flex; gap: 10px; flex-wrap: wrap; }
+  .badge {
+    background: rgba(255,255,255,0.18);
+    color: white;
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    backdrop-filter: blur(4px);
+  }
+
+  nav.toc {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 22px 26px;
+    margin-bottom: 36px;
+  }
+  nav.toc h2 {
+    margin: 0 0 14px;
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--cyan);
+  }
+  nav.toc ol {
+    columns: 2;
+    margin: 0;
+    padding-left: 18px;
+    font-size: 0.92rem;
+  }
+  nav.toc li { margin-bottom: 8px; }
+  nav.toc a { color: var(--text); text-decoration: none; }
+  nav.toc a:hover { color: var(--pink); }
+
+  section.block {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 30px 32px;
+    margin-bottom: 26px;
+    scroll-margin-top: 20px;
+  }
+
+  .section-num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    font-weight: 800;
+    font-size: 0.95rem;
+    margin-right: 12px;
+    color: #0f0f1a;
+  }
+
+  h2.title {
+    display: flex;
+    align-items: center;
+    font-size: 1.35rem;
+    margin: 0 0 6px;
+    color: white;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    margin: 0 0 20px;
+    font-size: 0.95rem;
+  }
+
+  h3.step {
+    font-size: 1rem;
+    margin: 26px 0 10px;
+    color: var(--cyan);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  h3.step .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--pink);
+    flex-shrink: 0;
+  }
+
+  p.note { color: var(--muted); font-size: 0.92rem; margin: 8px 0 14px; }
+
+  pre {
+    background: #0a0a14;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--purple);
+    border-radius: 10px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-size: 0.87rem;
+    margin: 0 0 14px;
+    position: relative;
+  }
+  pre.term-sub { border-left-color: var(--cyan); }
+  pre.term-pub { border-left-color: var(--pink); }
+  pre.term-docker { border-left-color: var(--blue); }
+  pre.term-curl { border-left-color: var(--green); }
+
+  code { font-family: 'Cascadia Code', 'Fira Code', Consolas, Menlo, monospace; }
+
+  pre code {
+    color: #e8e8f5;
+    white-space: pre;
+  }
+
+  .tag {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 3px 10px;
+    border-radius: 999px;
+    margin-bottom: 8px;
+  }
+  .tag.term1 { background: rgba(34,211,238,0.15); color: var(--cyan); }
+  .tag.term2 { background: rgba(244,114,182,0.15); color: var(--pink); }
+  .tag.term3 { background: rgba(96,165,250,0.15); color: var(--blue); }
+  .tag.docker { background: rgba(96,165,250,0.15); color: var(--blue); }
+  .tag.curl { background: rgba(52,211,153,0.15); color: var(--green); }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px;
+    font-size: 0.88rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  th {
+    color: var(--yellow);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  tr:last-child td { border-bottom: none; }
+
+  .flow {
+    background: #0a0a14;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    font-family: 'Cascadia Code', Consolas, Menlo, monospace;
+    font-size: 0.82rem;
+    color: var(--green);
+    white-space: pre;
+    overflow-x: auto;
+    margin: 10px 0 18px;
+  }
+
+  .callout {
+    border-radius: 12px;
+    padding: 16px 20px;
+    margin: 18px 0;
+    font-size: 0.92rem;
+  }
+  .callout.warn {
+    background: rgba(251, 146, 60, 0.1);
+    border: 1px solid rgba(251, 146, 60, 0.35);
+  }
+  .callout.warn strong { color: var(--orange); }
+  .callout.info {
+    background: rgba(96, 165, 250, 0.1);
+    border: 1px solid rgba(96, 165, 250, 0.35);
+  }
+  .callout.info strong { color: var(--blue); }
+  .callout.tip {
+    background: rgba(52, 211, 153, 0.1);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+  }
+  .callout.tip strong { color: var(--green); }
+
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-top: 40px;
+  }
+  footer a { color: var(--purple); }
+
+  @media (max-width: 640px) {
+    nav.toc ol { columns: 1; }
+    section.block { padding: 22px 18px; }
+    header.hero { padding: 28px 20px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <h1>Seat Booking System — Command Reference</h1>
+    <p>Redis Pub/Sub · Sorted Sets · TTL Locking · Virtual Queue · Elasticsearch · Docker</p>
+    <div class="badges">
+      <span class="badge">LLD / HLD Cohort</span>
+      <span class="badge">Copy-paste ready</span>
+      <span class="badge">redis-cli + curl</span>
+    </div>
+  </header>
+
+  <nav class="toc">
+    <h2>Contents</h2>
+    <ol>
+      <li><a href="#s1">Redis Pub/Sub + ZADD basics</a></li>
+      <li><a href="#s2">TTL-based seat locking (refined)</a></li>
+      <li><a href="#s3">Seat inventory initialization</a></li>
+      <li><a href="#s4">Redis → WebSocket streaming pattern</a></li>
+      <li><a href="#s5">Virtual queue for high demand</a></li>
+      <li><a href="#s6">Elasticsearch query cookbook</a></li>
+      <li><a href="#s7">Docker: running Elasticsearch + Kibana</a></li>
+    </ol>
+  </nav>
+
+  <!-- SECTION 1 -->
+  <section class="block" id="s1">
+    <h2 class="title"><span class="section-num" style="background:var(--cyan)">1</span>Redis Pub/Sub + ZADD Basics</h2>
+    <p class="subtitle">Simulating seat state with sorted sets, broadcasting events with Pub/Sub</p>
+
+    <h3 class="step"><span class="dot"></span>Terminal 1 — Subscriber (listens for booking events)</h3>
+    <span class="tag term1">Terminal 1</span>
+    <pre class="term-sub"><code>redis-cli
+SUBSCRIBE seat_booking_channel</code></pre>
+    <p class="note">This blocks and waits for messages — leave it running for the whole demo.</p>
+
+    <h3 class="step"><span class="dot"></span>Terminal 2 — Initialize seats in a sorted set</h3>
+    <span class="tag term2">Terminal 2</span>
+    <pre class="term-pub"><code>ZADD event:1001:seats 0 "A1" 0 "A2" 0 "A3" 0 "B1" 0 "B2"</code></pre>
+    <p class="note">Score <code>0</code> = available.</p>
+
+    <h3 class="step"><span class="dot"></span>Check available seats</h3>
+    <pre class="term-pub"><code>ZRANGEBYSCORE event:1001:seats 0 0</code></pre>
+
+    <h3 class="step"><span class="dot"></span>Lock a seat (score = lock timestamp)</h3>
+    <pre class="term-pub"><code>ZADD event:1001:seats CH 1755763200 "A1"</code></pre>
+    <p class="note"><code>CH</code> returns the number of changed elements — useful to confirm the update actually happened.</p>
+
+    <h3 class="step"><span class="dot"></span>Publish a lock event</h3>
+    <pre class="term-pub"><code>PUBLISH seat_booking_channel "SEAT_LOCKED:A1:event:1001"</code></pre>
+
+    <h3 class="step"><span class="dot"></span>Confirm booking</h3>
+    <pre class="term-pub"><code>ZADD event:1001:booked_seats 1755763200 "A1"
+ZREM event:1001:seats "A1"
+PUBLISH seat_booking_channel "SEAT_BOOKED:A1:event:1001"</code></pre>
+
+    <h3 class="step"><span class="dot"></span>Release seat if payment times out</h3>
+    <pre class="term-pub"><code>ZSCORE event:1001:seats "A1"
+ZADD event:1001:seats 0 "A1"
+PUBLISH seat_booking_channel "SEAT_RELEASED:A1:event:1001"</code></pre>
+
+    <div class="callout warn">
+      <strong>Limitation:</strong> this timestamp-as-score approach needs a manual sweep to find stale locks. Section 2 fixes this properly with real TTL.
+    </div>
+  </section>
+
+  <!-- SECTION 2 -->
+  <section class="block" id="s2">
+    <h2 class="title"><span class="section-num" style="background:var(--pink)">2</span>TTL-Based Seat Locking (Refined)</h2>
+    <p class="subtitle">The production-correct pattern — auto-expiring locks via key TTL, not manual sweeps</p>
+
+    <h3 class="step"><span class="dot"></span>One-time setup — enable keyspace notifications</h3>
+    <pre class="term-pub"><code>CONFIG SET notify-keyspace-events Ex</code></pre>
+    <p class="note"><code>Ex</code> = notify on key <strong>expired</strong> events.</p>
+
+    <h3 class="step"><span class="dot"></span>Initialize seat inventory (score = status code)</h3>
+    <pre class="term-pub"><code>ZADD event:1001:seats 0 "A1" 0 "A2" 0 "A3" 0 "B1" 0 "B2"</code></pre>
+    <table>
+      <tr><th>Score</th><th>Meaning</th></tr>
+      <tr><td>0</td><td>available</td></tr>
+      <tr><td>1</td><td>locked</td></tr>
+      <tr><td>2</td><td>booked</td></tr>
+    </table>
+
+    <h3 class="step"><span class="dot"></span>Terminal 1 — subscribe to lock expiry events</h3>
+    <span class="tag term1">Terminal 1</span>
+    <pre class="term-sub"><code>redis-cli
+PSUBSCRIBE "__keyevent@0__:expired"</code></pre>
+
+    <h3 class="step"><span class="dot"></span>Terminal 2 — subscribe to app-level booking events</h3>
+    <span class="tag term2">Terminal 2</span>
+    <pre class="term-sub"><code>redis-cli
+SUBSCRIBE seat_booking_channel</code></pre>
+
+    <h3 class="step"><span class="dot"></span>Terminal 3 — lock a seat atomically, 5-minute TTL</h3>
+    <span class="tag term3">Terminal 3</span>
+    <pre class="term-pub"><code>SET lock:event:1001:A1 "user:42" NX EX 300</code></pre>
+    <table>
+      <tr><th>Flag</th><th>Effect</th></tr>
+      <tr><td><code>NX</code></td><td>only sets if the key doesn't exist — this <em>is</em> the atomic check-and-lock</td></tr>
+      <tr><td><code>EX 300</code></td><td>auto-expires in 300 seconds</td></tr>
+    </table>
+
+    <h3 class="step"><span class="dot"></span>Reflect the lock + notify</h3>
+    <pre class="term-pub"><code>ZADD event:1001:seats 1 "A1"
+PUBLISH seat_booking_channel "SEAT_LOCKED:A1:user:42"</code></pre>
+
+    <h3 class="step"><span class="dot"></span>Confirm booking before TTL expires</h3>
+    <pre class="term-pub"><code>DEL lock:event:1001:A1
+ZADD event:1001:seats 2 "A1"
+PUBLISH seat_booking_channel "SEAT_BOOKED:A1:user:42"</code></pre>
+
+    <h3 class="step"><span class="dot"></span>On timeout — no code needed, Terminal 1 fires automatically</h3>
+    <div class="flow">pmessage
+__keyevent@0__:expired
+lock:event:1001:A1</div>
+    <p class="note">Your app then runs cleanup:</p>
+    <pre class="term-pub"><code>ZADD event:1001:seats 0 "A1"
+PUBLISH seat_booking_channel "SEAT_RELEASED:A1:expired"</code></pre>
+
+    <div class="callout warn">
+      <strong>Failure mode to flag:</strong> keyspace notifications are fire-and-forget. If the subscriber is down when a key expires, that event is lost and the seat map can go stale. Production systems add a periodic reconciliation job as a safety net.
+    </div>
+  </section>
+
+  <!-- SECTION 3 -->
+  <section class="block" id="s3">
+    <h2 class="title"><span class="section-num" style="background:var(--yellow); color:#141428">3</span>Seat Inventory Initialization</h2>
+    <p class="subtitle">Where inventory really comes from — and when it gets loaded into Redis</p>
+
+    <div class="callout info">
+      <strong>Key point:</strong> Redis is a fast-access cache/index. The relational DB (Postgres/MySQL) is the source of truth. Redis gets pre-warmed at <em>event-creation</em> time — not when the first student clicks "view seat map."
+    </div>
+
+    <h3 class="step"><span class="dot"></span>Bulk populate (simulated — real systems pipeline this from app code)</h3>
+    <pre class="term-pub"><code>redis-cli --pipe <<EOF
+ZADD event:1001:seats 0 "A1"
+ZADD event:1001:seats 0 "A2"
+ZADD event:1001:seats 0 "A3"
+EOF</code></pre>
+
+    <h3 class="step"><span class="dot"></span>Guard against re-initializing a live sale</h3>
+    <pre class="term-pub"><code>EXISTS event:1001:seats</code></pre>
+    <p class="note">Check before running init — never blindly overwrite in-progress locked/booked seats back to 0.</p>
+
+    <table>
+      <tr><th>Strategy</th><th>How</th><th>Trade-off</th></tr>
+      <tr><td><strong>Eager (write-through)</strong></td><td>Populate Redis fully when event is published</td><td>Predictable fast reads, costs memory upfront</td></tr>
+      <tr><td><strong>Lazy (cache-aside)</strong></td><td>Populate only on first view, from DB</td><td>Saves memory, but first request eats a cold-start DB read</td></tr>
+    </table>
+    <p class="note">High-traffic ticketing systems (BookMyShow/Ticketmaster-style) prefer <strong>eager init</strong> — avoids a DB read stampede when 50,000 people hit the page at sale-open.</p>
+  </section>
+
+  <!-- SECTION 4 -->
+  <section class="block" id="s4">
+    <h2 class="title"><span class="section-num" style="background:var(--green); color:#141428">4</span>Redis → WebSocket Streaming Pattern</h2>
+    <p class="subtitle">How live seat-map updates actually reach the browser</p>
+
+    <div class="flow">Redis PUBLISH  →  Backend WebSocket Server (subscriber)  →  Browser WebSocket
+
+                    ┌─────────────┐
+Booking Service --> │    Redis    │  PUBLISH seat_booking_channel
+                    │  (Pub/Sub)  │  "SEAT_LOCKED:A1"
+                    └──────┬──────┘
+                           │ SUBSCRIBE
+                           ▼
+                ┌─────────────────────┐
+                │  WS Server (Node/   │
+                │  Java/Go instance)  │
+                └──────────┬──────────┘
+                           │ fan-out to only
+                           │ clients watching event:1001
+              ┌────────────┼────────────┐
+              ▼            ▼             ▼
+          Browser A    Browser B     Browser C
+        (watching     (watching     (watching
+         event 1001)   event 1001)   event 2002)</div>
+
+    <p class="note">Browsers can't speak the Redis protocol directly — the WebSocket server is always the bridge. Redis Pub/Sub is the <strong>cross-instance messaging bus</strong> that lets multiple horizontally-scaled WS server pods stay in sync.</p>
+
+    <h3 class="step"><span class="dot"></span>Publish a structured event</h3>
+    <pre class="term-pub"><code>PUBLISH seat_booking_channel '{"event_id":"1001","seat_id":"A1","status":"LOCKED","ts":1755763200}'</code></pre>
+
+    <h3 class="step"><span class="dot"></span>WS server fan-out logic</h3>
+    <pre class="term-pub"><code>redisSubscriber.on('message', (channel, message) => {
+  const data = JSON.parse(message);
+  io.to(`event:${data.event_id}`).emit('seat_update', data);
+});</code></pre>
+
+    <div class="callout warn">
+      <strong>Not durable:</strong> Pub/Sub messages are fire-and-forget. On WebSocket reconnect, the client should re-fetch full state via <code>ZRANGE</code> rather than trusting the incremental stream alone.
+    </div>
+  </section>
+
+  <!-- SECTION 5 -->
+  <section class="block" id="s5">
+    <h2 class="title"><span class="section-num" style="background:var(--orange); color:#141428">5</span>Virtual Queue for High Demand</h2>
+    <p class="subtitle">Throttling entry into the booking flow during a popular on-sale</p>
+
+    <h3 class="step"><span class="dot"></span>Join the queue (score = arrival order)</h3>
+    <pre class="term-pub"><code>ZADD event:1001:queue 1755763200.001 "user:42"
+ZADD event:1001:queue 1755763200.002 "user:43"
+ZADD event:1001:queue 1755763200.003 "user:44"</code></pre>
+
+    <h3 class="step"><span class="dot"></span>Get a user's position</h3>
+    <pre class="term-pub"><code>ZRANK event:1001:queue "user:44"</code></pre>
+    <p class="note">Returns 0-indexed rank → O(log N), cheap even at massive scale.</p>
+
+    <h3 class="step"><span class="dot"></span>Admission batch job — pop the front of the queue</h3>
+    <pre class="term-pub"><code>ZPOPMIN event:1001:queue 100</code></pre>
+
+    <h3 class="step"><span class="dot"></span>Grant a TTL'd booking session + notify</h3>
+    <pre class="term-pub"><code>SET session:event:1001:user:42 "active" NX EX 300
+PUBLISH queue_channel:1001 '{"user_id":"42","status":"ADMITTED"}'</code></pre>
+
+    <table>
+      <tr><th>Approach</th><th>When used</th></tr>
+      <tr><td>Polling <code>ZRANK</code> every 5–10s</td><td>Cheap, scales to huge waiting crowds, slight staleness OK</td></tr>
+      <tr><td>WebSocket push</td><td>Reserved for the critical "you're admitted" transition</td></tr>
+      <tr><td>SSE (Server-Sent Events)</td><td>Lighter one-directional alternative to full WebSocket</td></tr>
+    </table>
+
+    <div class="callout tip">
+      <strong>Throttle to downstream capacity:</strong> admit on a fixed cadence matched to what the booking backend/DB can handle — not "admit everyone the instant they reach position zero."
+    </div>
+
+    <div class="callout warn">
+      <strong>Same resync pattern as before:</strong> if a WS server drops mid-session, the client could miss its "admitted" push. On reconnect, re-check status via REST (<code>ZRANK</code> + whether a <code>session:*</code> key exists) rather than trusting the push alone.
+    </div>
+  </section>
+
+  <!-- SECTION 6 -->
+  <section class="block" id="s6">
+    <h2 class="title"><span class="section-num" style="background:var(--purple)">6</span>Elasticsearch Query Cookbook</h2>
+    <p class="subtitle"><code>curl</code> commands against a local Elasticsearch instance on <code>localhost:9200</code></p>
+
+    <h3 class="step"><span class="dot"></span>Cluster health check</h3>
+    <span class="tag curl">curl</span>
+    <pre class="term-curl"><code>curl -X GET "localhost:9200/_cluster/health?pretty"</code></pre>
+
+    <h3 class="step"><span class="dot"></span>1. Create an index with mapping</h3>
+    <pre class="term-curl"><code>curl -X PUT "localhost:9200/products?pretty" -H 'Content-Type: application/json' -d'
+{
+  "mappings": {
+    "properties": {
+      "name":        { "type": "text" },
+      "category":    { "type": "keyword" },
+      "price":       { "type": "float" },
+      "in_stock":    { "type": "boolean" },
+      "rating":      { "type": "float" },
+      "created_at":  { "type": "date" },
+      "description": { "type": "text" }
+    }
+  }
+}'</code></pre>
+    <p class="note"><code>text</code> = analyzed/tokenized for full-text search. <code>keyword</code> = exact match, used for filters/aggregations.</p>
+
+    <h3 class="step"><span class="dot"></span>2. Index a single document</h3>
+    <pre class="term-curl"><code>curl -X POST "localhost:9200/products/_doc/1?pretty" -H 'Content-Type: application/json' -d'
+{
+  "name": "Wireless Mechanical Keyboard",
+  "category": "electronics",
+  "price": 89.99,
+  "in_stock": true,
+  "rating": 4.5,
+  "created_at": "2026-01-15",
+  "description": "RGB backlit mechanical keyboard with hot-swappable switches"
+}'</code></pre>
+
+    <h3 class="step"><span class="dot"></span>3. Bulk index multiple documents</h3>
+    <pre class="term-curl"><code>curl -X POST "localhost:9200/_bulk?pretty" -H 'Content-Type: application/json' -d'
+{ "index": { "_index": "products", "_id": "2" } }
+{ "name": "USB-C Hub", "category": "electronics", "price": 34.99, "in_stock": true, "rating": 4.1, "created_at": "2026-02-01", "description": "7-in-1 USB-C hub with HDMI and card reader" }
+{ "index": { "_index": "products", "_id": "3" } }
+{ "name": "Standing Desk", "category": "furniture", "price": 349.00, "in_stock": false, "rating": 4.7, "created_at": "2026-01-20", "description": "Electric height-adjustable standing desk" }
+{ "index": { "_index": "products", "_id": "4" } }
+{ "name": "Mechanical Mouse", "category": "electronics", "price": 45.50, "in_stock": true, "rating": 3.9, "created_at": "2026-03-05", "description": "Ergonomic mechanical mouse with programmable buttons" }
+'</code></pre>
+    <p class="note">Watch the trailing newline requirement in <code>_bulk</code> — each action line + doc line pair, no missing blank lines.</p>
+
+    <h3 class="step"><span class="dot"></span>4. Full-text search — <code>match</code></h3>
+    <pre class="term-curl"><code>curl -X GET "localhost:9200/products/_search?pretty" -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "match": { "description": "mechanical keyboard" }
+  }
+}'</code></pre>
+
+    <h3 class="step"><span class="dot"></span>5. Exact match — <code>term</code> (keyword fields)</h3>
+    <pre class="term-curl"><code>curl -X GET "localhost:9200/products/_search?pretty" -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "term": { "category": "electronics" }
+  }
+}'</code></pre>
+
+    <h3 class="step"><span class="dot"></span>6. Range query (price filter)</h3>
+    <pre class="term-curl"><code>curl -X GET "localhost:9200/products/_search?pretty" -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "range": { "price": { "gte": 30, "lte": 100 } }
+  }
+}'</code></pre>
+
+    <h3 class="step"><span class="dot"></span>7. Compound query — <code>bool</code></h3>
+    <pre class="term-curl"><code>curl -X GET "localhost:9200/products/_search?pretty" -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "bool": {
+      "must": [ { "match": { "description": "keyboard" } } ],
+      "filter": [
+        { "term": { "in_stock": true } },
+        { "range": { "price": { "lte": 100 } } }
+      ],
+      "should": [ { "match": { "category": "electronics" } } ],
+      "must_not": [ { "term": { "category": "furniture" } } ]
+    }
+  }
+}'</code></pre>
+    <table>
+      <tr><th>Clause</th><th>Role</th></tr>
+      <tr><td><code>must</code></td><td>Contributes to relevance score, required</td></tr>
+      <tr><td><code>filter</code></td><td>Required, score-neutral, cacheable/faster</td></tr>
+      <tr><td><code>should</code></td><td>Optional, boosts score if matched</td></tr>
+      <tr><td><code>must_not</code></td><td>Excludes matches</td></tr>
+    </table>
+
+    <h3 class="step"><span class="dot"></span>8. Aggregations — average price per category</h3>
+    <pre class="term-curl"><code>curl -X GET "localhost:9200/products/_search?pretty" -H 'Content-Type: application/json' -d'
+{
+  "size": 0,
+  "aggs": {
+    "by_category": {
+      "terms": { "field": "category" },
+      "aggs": { "avg_price": { "avg": { "field": "price" } } }
+    }
+  }
+}'</code></pre>
+    <p class="note"><code>size: 0</code> = don't return raw docs, only aggregation buckets.</p>
+
+    <h3 class="step"><span class="dot"></span>9. Sorting + pagination</h3>
+    <pre class="term-curl"><code>curl -X GET "localhost:9200/products/_search?pretty" -H 'Content-Type: application/json' -d'
+{
+  "query": { "match_all": {} },
+  "sort": [ { "rating": { "order": "desc" } } ],
+  "from": 0,
+  "size": 10
+}'</code></pre>
+
+    <h3 class="step"><span class="dot"></span>10. Autocomplete — <code>match_phrase_prefix</code></h3>
+    <pre class="term-curl"><code>curl -X GET "localhost:9200/products/_search?pretty" -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "match_phrase_prefix": { "name": "mechan" }
+  }
+}'</code></pre>
+
+    <h3 class="step"><span class="dot"></span>11. Fuzzy search (typo tolerance)</h3>
+    <pre class="term-curl"><code>curl -X GET "localhost:9200/products/_search?pretty" -H 'Content-Type: application/json' -d'
+{
+  "query": {
+    "fuzzy": {
+      "name": { "value": "keybord", "fuzziness": "AUTO" }
+    }
+  }
+}'</code></pre>
+
+    <h3 class="step"><span class="dot"></span>12. Partial update</h3>
+    <pre class="term-curl"><code>curl -X POST "localhost:9200/products/_update/1?pretty" -H 'Content-Type: application/json' -d'
+{
+  "doc": { "price": 79.99, "in_stock": false }
+}'</code></pre>
+
+    <h3 class="step"><span class="dot"></span>13. Delete a document</h3>
+    <pre class="term-curl"><code>curl -X DELETE "localhost:9200/products/_doc/4?pretty"</code></pre>
+
+    <div class="callout info">
+      <strong>HLD tie-in:</strong> Elasticsearch is a read-optimized search index, not the source of truth. Sync it from the primary DB via <strong>dual write</strong> (simple, but can drift) or <strong>CDC</strong> (Debezium/Kafka → ES — more resilient, eventually consistent).
+    </div>
+  </section>
+
+  <!-- SECTION 7 -->
+  <section class="block" id="s7">
+    <h2 class="title"><span class="section-num" style="background:var(--blue)">7</span>Docker: Running Elasticsearch + Kibana</h2>
+    <p class="subtitle">Spin up a local ES cluster when nothing is installed natively</p>
+
+    <h3 class="step"><span class="dot"></span>Single-node Elasticsearch (quickest for local testing)</h3>
+    <span class="tag docker">docker</span>
+    <pre class="term-docker"><code>docker run -d \
+  --name elasticsearch \
+  -p 9200:9200 -p 9300:9300 \
+  -e "discovery.type=single-node" \
+  -e "xpack.security.enabled=false" \
+  -e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
+  docker.elastic.co/elasticsearch/elasticsearch:8.15.0</code></pre>
+    <table>
+      <tr><th>Flag</th><th>Why</th></tr>
+      <tr><td><code>discovery.type=single-node</code></td><td>Skips cluster formation, needed for local dev</td></tr>
+      <tr><td><code>xpack.security.enabled=false</code></td><td>Disables auth/TLS so curl works without credentials (local only, never prod)</td></tr>
+      <tr><td><code>ES_JAVA_OPTS</code></td><td>Caps heap size so it doesn't hog your machine's RAM</td></tr>
+    </table>
+
+    <h3 class="step"><span class="dot"></span>Verify it's up</h3>
+    <pre class="term-docker"><code>docker ps
+curl -X GET "localhost:9200/_cluster/health?pretty"</code></pre>
+    <p class="note">Wait ~20–30 seconds after <code>docker run</code> before this returns healthy.</p>
+
+    <h3 class="step"><span class="dot"></span>Optional: add Kibana for a visual query console</h3>
+    <pre class="term-docker"><code>docker network create es-net
+
+docker run -d \
+  --name elasticsearch \
+  --network es-net \
+  -p 9200:9200 -p 9300:9300 \
+  -e "discovery.type=single-node" \
+  -e "xpack.security.enabled=false" \
+  -e "ES_JAVA_OPTS=-Xms512m -Xmx512m" \
+  docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+
+docker run -d \
+  --name kibana \
+  --network es-net \
+  -p 5601:5601 \
+  -e "ELASTICSEARCH_HOSTS=http://elasticsearch:9200" \
+  docker.elastic.co/kibana/kibana:8.15.0</code></pre>
+    <p class="note">Open <code>http://localhost:5601</code> → Dev Tools gives a query console, nicer than raw curl for live demos.</p>
+
+    <h3 class="step"><span class="dot"></span>Docker Compose (reproducible for cohort teaching)</h3>
+    <pre class="term-docker"><code># docker-compose.yml
+version: "3.8"
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.15.0
+    container_name: kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      - elasticsearch</code></pre>
+    <pre class="term-docker"><code>docker-compose up -d
+docker-compose logs -f elasticsearch</code></pre>
+
+    <h3 class="step"><span class="dot"></span>Cleanup</h3>
+    <pre class="term-docker"><code>docker stop elasticsearch kibana
+docker rm elasticsearch kibana</code></pre>
+
+    <div class="callout tip">
+      <strong>Once running, nothing else changes</strong> — all the <code>curl -X GET "localhost:9200/..."</code> commands from Section 6 work exactly as-is against the Dockerized instance.
+    </div>
+  </section>
+
+  <footer>
+    Prepared for the LLD/HLD Live Cohort — Redis Pub/Sub, Sorted Sets, TTL Locking, Virtual Queues &amp; Elasticsearch
+  </footer>
+
+</div>
+</body>
+</html>

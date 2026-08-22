@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<!-- saved from url=(0062)file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html -->
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<title>HLD — Movie / Event Ticketing Platform</title>
+<style>
+  :root{
+    --bg:#0B0B0D; --surface:#141317; --surface-2:#1C1A20; --surface-3:#242129;
+    --border:#2C2A31; --border-soft:#221F26;
+    --red:#C81E3A; --red-dim:#7A1526;
+    --gold:#E8B24C; --gold-dim:#8C6A2C;
+    --green:#4CAF7D; --green-dim:#2E5C48;
+    --text:#F2EFE9; --text-dim:#A19DA8; --text-faint:#6E6A76;
+    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --display: 'Arial Narrow', 'Helvetica Neue Condensed', 'Roboto Condensed', Impact, var(--sans);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+    font-size:15.5px; line-height:1.65;
+  }
+  a{color:var(--gold); text-decoration:none;}
+
+  /* ---------- layout ---------- */
+  .app{display:grid; grid-template-columns:260px 1fr; min-height:100vh;}
+  @media (max-width:960px){ .app{grid-template-columns:1fr;} .sidebar{display:none;} }
+
+  .sidebar{
+    position:sticky; top:0; height:100vh; overflow-y:auto;
+    background:var(--surface); border-right:1px solid var(--border);
+    padding:28px 0 40px;
+  }
+  .sidebar .brand{
+    padding:0 22px 20px; border-bottom:1px solid var(--border-soft); margin-bottom:14px;
+  }
+  .sidebar .brand .tag{
+    font-family:var(--display); letter-spacing:.14em; font-size:11px; color:var(--gold);
+    text-transform:uppercase;
+  }
+  .sidebar .brand h1{
+    font-family:var(--display); font-size:20px; letter-spacing:.02em; margin:6px 0 0;
+    text-transform:uppercase; line-height:1.15;
+  }
+  .sidebar nav a{
+    display:block; padding:7px 22px; font-size:13px; color:var(--text-dim);
+    border-left:2px solid transparent;
+  }
+  .sidebar nav a span{color:var(--text-faint); font-family:var(--mono); font-size:11px; margin-right:8px;}
+  .sidebar nav a:hover{color:var(--text); border-left-color:var(--gold-dim); background:var(--surface-2);}
+
+  main{padding:0; max-width:980px; margin:0 auto;}
+
+  /* ---------- hero ---------- */
+  .hero{
+    position:relative; padding:74px 56px 56px; overflow:hidden;
+    background:
+      radial-gradient(ellipse 900px 400px at 15% -10%, rgba(200,30,58,.35), transparent 60%),
+      radial-gradient(ellipse 700px 400px at 100% 0%, rgba(232,178,76,.14), transparent 55%),
+      var(--bg);
+    border-bottom:1px solid var(--border);
+  }
+  .hero .eyebrow{
+    font-family:var(--display); letter-spacing:.22em; font-size:12px; color:var(--gold);
+    text-transform:uppercase; margin-bottom:14px;
+  }
+  .hero h1{
+    font-family:var(--display); font-size:56px; line-height:0.98; text-transform:uppercase;
+    letter-spacing:.01em; margin:0 0 18px; max-width:700px;
+  }
+  .hero h1 em{font-style:normal; color:var(--red); text-shadow:0 0 26px rgba(200,30,58,.5);}
+  .hero p.lede{max-width:620px; color:var(--text-dim); font-size:16px; margin:0 0 26px;}
+  .hero .meta-row{display:flex; gap:10px; flex-wrap:wrap;}
+  .pill{
+    font-family:var(--mono); font-size:11.5px; padding:6px 12px; border:1px solid var(--border);
+    border-radius:3px; color:var(--text-dim); background:var(--surface);
+  }
+  .pill b{color:var(--text);}
+
+  section{padding:52px 56px; border-bottom:1px solid var(--border-soft);}
+  section:last-of-type{border-bottom:none;}
+
+  .sec-head{display:flex; align-items:baseline; gap:16px; margin-bottom:22px;}
+  .sec-num{
+    font-family:var(--display); font-size:15px; color:var(--red); letter-spacing:.08em;
+    border:1px solid var(--red-dim); padding:3px 10px; border-radius:2px; white-space:nowrap;
+  }
+  .sec-head h2{
+    font-family:var(--display); text-transform:uppercase; letter-spacing:.02em;
+    font-size:27px; margin:0;
+  }
+  h3{font-family:var(--display); text-transform:uppercase; letter-spacing:.02em; font-size:16.5px; color:var(--gold); margin:26px 0 10px;}
+  p{margin:0 0 14px; color:var(--text);}
+  p.dim, li.dim{color:var(--text-dim);}
+  strong{color:var(--gold); font-weight:600;}
+  code{font-family:var(--mono); background:var(--surface-2); padding:1px 6px; border-radius:3px; font-size:13px; color:#F0D68C; border:1px solid var(--border-soft);}
+  ul,ol{padding-left:20px; margin:0 0 14px;}
+  li{margin-bottom:6px;}
+
+  /* ---------- ticket stub ---------- */
+  .stub{
+    position:relative; background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; padding:20px 24px; margin:16px 0;
+  }
+  .stub::before, .stub::after{
+    content:""; position:absolute; width:16px; height:16px; background:var(--bg);
+    border:1px solid var(--border); border-radius:50%; top:50%; transform:translateY(-50%);
+  }
+  .stub::before{left:-9px;} .stub::after{right:-9px;}
+  .stub .stub-tear{
+    border-top:2px dashed var(--border); margin:14px -24px 0; padding-top:14px;
+  }
+
+  /* ---------- grid / cards ---------- */
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;}
+  @media (max-width:760px){ .grid2, .grid3{grid-template-columns:1fr;} }
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:18px 20px;}
+  .card h4{margin:0 0 8px; font-family:var(--display); letter-spacing:.03em; text-transform:uppercase; font-size:14px; color:var(--text);}
+  .card.accent-gold{border-color:var(--gold-dim);}
+  .card.accent-red{border-color:var(--red-dim);}
+  .card.accent-green{border-color:var(--green-dim);}
+
+  table{width:100%; border-collapse:collapse; margin:14px 0 18px; font-size:14px;}
+  th{
+    font-family:var(--display); letter-spacing:.04em; text-transform:uppercase; font-size:11.5px;
+    color:var(--gold); text-align:left; padding:9px 12px; border-bottom:1px solid var(--border);
+  }
+  td{padding:10px 12px; border-bottom:1px solid var(--border-soft); color:var(--text-dim); vertical-align:top;}
+  tr:hover td{color:var(--text);}
+
+  .api-block{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:6px;
+    padding:12px 16px; margin:8px 0; font-family:var(--mono); font-size:13px;
+  }
+  .verb{font-weight:700; padding:2px 7px; border-radius:3px; font-size:11px; margin-right:10px;}
+  .verb.get{color:#7FB0E8; border:1px solid #2E4A66;}
+  .verb.post{color:var(--green); border:1px solid var(--green-dim);}
+  .verb.delete{color:#E88C8C; border:1px solid #6E2C2C;}
+  .api-desc{color:var(--text-faint); font-family:var(--sans); font-size:12.5px; margin-top:4px;}
+
+  .callout{border-left:3px solid var(--gold); background:var(--surface); padding:14px 18px; border-radius:0 6px 6px 0; margin:16px 0;}
+  .callout.insight{border-left-color:var(--red);}
+  .callout .label{font-family:var(--display); letter-spacing:.1em; font-size:11px; text-transform:uppercase; color:var(--gold); margin-bottom:6px;}
+  .callout.insight .label{color:var(--red);}
+
+  /* weak vs strong */
+  .vs-wrap{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:16px 0;}
+  @media (max-width:760px){.vs-wrap{grid-template-columns:1fr;}}
+  .vs-card{border-radius:8px; padding:16px 18px; border:1px solid;}
+  .vs-card.weak{background:rgba(200,30,58,.06); border-color:var(--red-dim);}
+  .vs-card.strong{background:rgba(76,175,125,.06); border-color:var(--green-dim);}
+  .vs-tag{font-family:var(--display); letter-spacing:.08em; font-size:11px; text-transform:uppercase; padding:2px 9px; border-radius:3px; display:inline-block; margin-bottom:8px;}
+  .vs-card.weak .vs-tag{background:var(--red-dim); color:#FBD7DC;}
+  .vs-card.strong .vs-tag{background:var(--green-dim); color:#D3F3E3;}
+
+  .q{
+    display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--border-soft);
+  }
+  .q:last-child{border-bottom:none;}
+  .q .qmark{font-family:var(--display); color:var(--red); font-size:20px; line-height:1.2;}
+
+  /* diagrams */
+  .diagram-wrap{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; margin:16px 0; overflow-x:auto;}
+  .diagram-wrap svg{display:block; margin:0 auto;}
+  .diagram-cap{text-align:center; color:var(--text-faint); font-size:12px; margin-top:10px; font-family:var(--mono);}
+
+  .stage-tabs{display:flex; gap:8px; margin-bottom:6px; flex-wrap:wrap;}
+  .stage-tab{
+    font-family:var(--display); letter-spacing:.05em; text-transform:uppercase; font-size:11.5px;
+    padding:6px 14px; border:1px solid var(--border); border-radius:20px; color:var(--text-faint);
+  }
+  .stage-tab.active{color:var(--bg); background:var(--gold); border-color:var(--gold);}
+
+  pre{
+    background:#0E0D11; border:1px solid var(--border); border-radius:8px; padding:18px 20px;
+    overflow-x:auto; font-family:var(--mono); font-size:12.6px; line-height:1.6; color:#D9D6E0;
+  }
+  pre .cm{color:#6E6A76;}
+  .code-out{
+    background:#0A140F; border:1px solid var(--green-dim); border-radius:8px; padding:16px 20px;
+    font-family:var(--mono); font-size:12.6px; color:#B9EAD0; white-space:pre-wrap; margin-top:-6px;
+  }
+
+  footer{padding:36px 56px 60px; color:var(--text-faint); font-size:12.5px; font-family:var(--mono);}
+
+  ::-webkit-scrollbar{width:10px; height:10px;}
+  ::-webkit-scrollbar-track{background:var(--bg);}
+  ::-webkit-scrollbar-thumb{background:var(--surface-3); border-radius:6px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="tag">HLD Reference · Staff/Principal Bar</div>
+      <h1>Ticketing<br>Platform</h1>
+    </div>
+    <nav>
+      <a href="file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html#s1"><span>01</span>Problem Framing</a>
+      <a href="file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html#s2"><span>02</span>Clarifying Qs</a>
+      <a href="file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html#s3"><span>03</span>Requirements</a>
+      <a href="file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html#s4"><span>04</span>Capacity</a>
+      <a href="file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html#s5"><span>05</span>API Design</a>
+      <a href="file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html#s6"><span>06</span>Data Model</a>
+      <a href="file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html#s7"><span>07</span>Architecture</a>
+      <a href="file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html#s8"><span>08</span>Deep Dives</a>
+      <a href="file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html#s9"><span>09</span>Trade-offs</a>
+      <a href="file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html#s10"><span>10</span>Bottlenecks</a>
+      <a href="file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html#s11"><span>11</span>Failure Handling</a>
+      <a href="file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html#s12"><span>12</span>Security</a>
+      <a href="file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html#s13"><span>13</span>Observability</a>
+      <a href="file:///Users/pradeepkumar/Downloads/ticketing-system-hld.html#s14"><span>14</span>Cross-Questions</a>
+    </nav>
+  </aside>
+
+  <main>
+
+    <div class="hero">
+      <div class="eyebrow">System Design · Interview-Grade HLD</div>
+      <h1>Design a Movie / Event<br><em>Ticketing</em> Platform</h1>
+      <p class="lede">A Ticketmaster / BookMyShow-style system: browse shows, pick seats on a live seat map, hold them, pay, and walk away with a confirmed booking — without ever double-selling a seat, even when 200,000 people hit "Buy" for the same show in the same minute.</p>
+      <div class="meta-row">
+        <div class="pill">Core hard problem: <b>seat inventory contention</b></div>
+        <div class="pill">Consistency model: <b>strong, per-show</b></div>
+        <div class="pill">Companion code: <b>seat_lock.py</b></div>
+      </div>
+    </div>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="sec-head"><div class="sec-num">01</div><h2>Problem Framing</h2></div>
+      <p>Strip away the movie-poster UI and this is an <strong>inventory system with a deadline</strong>. Every show has a fixed, small pool of seats. Demand for popular shows can spike 50–100x baseline within seconds of going on sale. The system has to let a user browse and decide unhurried, but the moment they touch a seat, it has to behave like a bank ledger: exactly one owner, ever, per seat.</p>
+      <p>That tension — <em>relaxed, cacheable reads</em> vs. <em>strict, serialized writes on a tiny hot key</em> — is the whole design problem. Everything else (search, recommendations, notifications, payments) is standard e-commerce plumbing bolted around that core.</p>
+      <div class="callout insight">
+        <div class="label">The framing that unlocks the design</div>
+        A seat can only ever contend with <strong>other requests for the same show</strong>. A seat in Screen 4 of a Bengaluru multiplex never competes with a seat in a Mumbai stadium concert. That means the famous "hot show" problem is <strong>embarrassingly parallel across shows</strong> — we don't need one giant globally-consistent store, we need many small, strongly-consistent shards, one per show (or per venue-day), and horizontal scale falls out for free.
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="sec-head"><div class="sec-num">02</div><h2>Clarifying Questions</h2></div>
+      <p class="dim">Ask these before designing anything — they materially change the architecture.</p>
+      <div class="q"><div class="qmark">?</div><div><strong>Scope:</strong> Movies only, or a generic events platform (concerts, sports, theatre) with GA (general-admission, no seat map) sections too? <span class="dim">→ Assume generic platform; seat-level selection is the harder superset, GA sections are a simplification of the same inventory model (count-based instead of seat-based).</span></div></div>
+      <div class="q"><div class="qmark">?</div><div><strong>Scale of a "flash sale":</strong> Is this Ticketmaster-scale (a global tour, millions of hopeful buyers, one show)? <span class="dim">→ Yes — design for a virtual waiting room, not just a fast database.</span></div></div>
+      <div class="q"><div class="qmark">?</div><div><strong>Geography:</strong> Single country/timezone or global, multi-currency, multi-region? <span class="dim">→ Assume multi-city within one country for the core design; call out multi-region as an extension.</span></div></div>
+      <div class="q"><div class="qmark">?</div><div><strong>Cancellations &amp; resale:</strong> In scope? <span class="dim">→ Yes, basic cancellation/refund; resale marketplace is out of scope.</span></div></div>
+      <div class="q"><div class="qmark">?</div><div><strong>Payment:</strong> Do we build payments, or integrate an external PSP (Stripe/Razorpay-style)? <span class="dim">→ Integrate; we own orchestration and idempotency, not card processing.</span></div></div>
+      <div class="q"><div class="qmark">?</div><div><strong>Dynamic pricing:</strong> In scope? <span class="dim">→ Out of scope for HLD depth, mention as a pricing-service hook.</span></div></div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="sec-head"><div class="sec-num">03</div><h2>Functional &amp; Non-Functional Requirements</h2></div>
+      <div class="grid2">
+        <div class="card accent-gold">
+          <h4>Functional</h4>
+          <ul>
+            <li>Search/browse movies &amp; events by city, date, venue</li>
+            <li>View showtimes and a live seat map per show</li>
+            <li>Hold selected seats for a short checkout window</li>
+            <li>Pay and receive a confirmed booking + e-ticket (QR code)</li>
+            <li>Cancel a booking / trigger refund</li>
+            <li>Notify user (confirmation, reminder, cancellation)</li>
+            <li>Admin: publish shows, configure venues &amp; pricing</li>
+          </ul>
+        </div>
+        <div class="card accent-red">
+          <h4>Non-Functional</h4>
+          <ul>
+            <li><strong>Correctness over speed on writes</strong> — zero double-booking, ever</li>
+            <li><strong>Strong consistency</strong> scoped to a single seat/show</li>
+            <li><strong>Low read latency</strong> — search/browse is 100–1000x more frequent than booking</li>
+            <li><strong>Elastic scale</strong> — absorb 50–100x spikes for minutes at a time</li>
+            <li><strong>High availability</strong> for browse, even if booking briefly queues</li>
+            <li>Durability — a confirmed booking must never be lost</li>
+            <li>Fairness — first-come-first-served under load, not "whoever retries hardest"</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">
+        <div class="label">The CAP framing to say out loud in an interview</div>
+        For the <strong>seat inventory write path</strong> we deliberately choose <strong>CP</strong> (consistency over availability) at the shard level — better to briefly reject a hold than double-sell a seat. For the <strong>catalog/search read path</strong> we choose <strong>AP</strong> — a seat map that's 2 seconds stale is a fine UX trade-off; a booking that silently fails is not.
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="sec-head"><div class="sec-num">04</div><h2>Capacity Estimation</h2></div>
+      <p class="dim">Rough numbers, stated as assumptions — the point is to show the reasoning, not hit an exact figure.</p>
+      <table>
+        <tbody><tr><th>Assumption</th><th>Value</th><th>Derivation</th></tr>
+        <tr><td>Monthly active users</td><td>50M</td><td>national-scale platform</td></tr>
+        <tr><td>Daily active users</td><td>5M</td><td>~10% of MAU</td></tr>
+        <tr><td>Shows live per day</td><td>~8,000</td><td>multiplex chains × screens × showtimes, nationwide</td></tr>
+        <tr><td>Avg seats / show</td><td>150</td><td>typical multiplex screen</td></tr>
+        <tr><td>Baseline browse QPS</td><td>~3,000 QPS</td><td>reads: search + seat map views, steady state</td></tr>
+        <tr><td>Flash-sale browse QPS</td><td>~150,000 QPS</td><td>50x spike for a blockbuster/major concert on-sale</td></tr>
+        <tr><td>Flash-sale hold-write QPS (one hot show)</td><td>~5,000–10,000 QPS</td><td>bounded by seats × contention factor, NOT global traffic</td></tr>
+        <tr><td>Confirmed bookings / day</td><td>~2M</td><td>~40% of 5M DAU convert</td></tr>
+        <tr><td>Booking record size</td><td>~2 KB</td><td>seats, user, payment ref, ticket metadata</td></tr>
+        <tr><td>Booking storage / year</td><td>~1.5 TB</td><td>2M/day × 365 × 2KB</td></tr>
+      </tbody></table>
+      <div class="callout insight">
+        <div class="label">Why the hold-write QPS number matters most</div>
+        Notice the write QPS for a hot show is bounded by <strong>its own seat count</strong> (a show can have at most a few hundred seats, so worst case is a few hundred successful holds plus retries/rejections — a few thousand QPS at most, on one shard). The system doesn't need to survive 150,000 QPS of <em>writes</em> — it needs to survive 150,000 QPS of <em>reads</em> and gracefully throttle everything else into an orderly queue. This reframes "handle the flash sale" from a database scaling problem into an <strong>admission-control and caching</strong> problem.
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="sec-head"><div class="sec-num">05</div><h2>API Design</h2></div>
+
+      <div class="api-block"><span class="verb get">GET</span>/events?city=blr&amp;date=2026-08-15&amp;q=inception
+        <div class="api-desc">Search movies/events. Cache-friendly, served from search index, not the booking DB.</div>
+      </div>
+      <div class="api-block"><span class="verb get">GET</span>/events/{eventId}/shows?date=2026-08-15
+        <div class="api-desc">List showtimes across venues for a given event/date.</div>
+      </div>
+      <div class="api-block"><span class="verb get">GET</span>/shows/{showId}/seatmap
+        <div class="api-desc">Layout + current per-seat status (available/held/booked). Cached, eventually consistent (~1–2s staleness acceptable).</div>
+      </div>
+      <div class="api-block"><span class="verb post">POST</span>/shows/{showId}/holds &nbsp;{ seatIds: [...], userId }
+        <div class="api-desc">Attempt to soft-lock seats for the checkout window (default 8 min TTL). Returns a <code>holdId</code> + fencing token per seat, or 409 for unavailable seats. <strong>Idempotency-Key header required.</strong></div>
+      </div>
+      <div class="api-block"><span class="verb delete">DELETE</span>/holds/{holdId}
+        <div class="api-desc">Explicit release (user abandons checkout). Also auto-expires via TTL.</div>
+      </div>
+      <div class="api-block"><span class="verb post">POST</span>/bookings &nbsp;{ holdId, paymentToken }
+        <div class="api-desc">Confirms payment and converts a valid, unexpired hold into a durable booking. Idempotent — safe to retry on client timeout.</div>
+      </div>
+      <div class="api-block"><span class="verb post">POST</span>/bookings/{bookingId}/cancel
+        <div class="api-desc">Triggers refund workflow, releases seats back to inventory (or resale pool).</div>
+      </div>
+      <div class="api-block"><span class="verb get">GET</span>/waiting-room/{showId}/token &nbsp;→&nbsp; <span class="verb get">GET</span>/waiting-room/status?token=…
+        <div class="api-desc">For flash-sale shows: issues a queue position token and polls for admission — see §8.</div>
+      </div>
+
+      <div class="callout">
+        <div class="label">Why <code>hold</code> is a separate step from <code>booking</code></div>
+        Splitting "reserve" from "pay &amp; confirm" is what makes the payment gateway's unpredictable latency (2–30s, sometimes minutes with 3DS/OTP) a non-issue for inventory correctness. The seat is safely parked under a fencing token the moment the user picks it; the payment step only needs to prove it still holds a valid token.
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="sec-head"><div class="sec-num">06</div><h2>Data Modeling</h2></div>
+      <p>The interview-losing move here is reflexively reaching for "NoSQL because it scales." The stronger move is reasoning <strong>per entity</strong>, from its actual access pattern and consistency need:</p>
+      <table>
+        <tbody><tr><th>Entity</th><th>Store</th><th>Why</th></tr>
+        <tr><td><strong>Seat Inventory</strong> (show_id, seat_id → state, token, expiry)</td><td>Relational (Postgres), <strong>sharded by show_id</strong></td><td>Needs atomic compare-and-swap semantics (§8). Low cardinality per shard (hundreds of rows). ACID transactions are cheap at this scale and remove an entire class of correctness bugs.</td></tr>
+        <tr><td><strong>Catalog</strong> (movies, venues, showtimes)</td><td>Elasticsearch + Postgres source-of-truth</td><td>Read-heavy, filter/facet/geo queries, tolerant of a few seconds of staleness. ES is the query engine; Postgres is the durable write path feeding it via CDC.</td></tr>
+        <tr><td><strong>Bookings</strong> (confirmed orders)</td><td>Relational, sharded by user_id or booking date range</td><td>Needs durability + transactional writes with payment, but no cross-show contention — shards purely for scale, not correctness.</td></tr>
+        <tr><td><strong>Seat map cache</strong> (denormalized, for rendering)</td><td>Redis</td><td>Read-dominant, regenerated on every state change, short TTL fallback.</td></tr>
+        <tr><td><strong>Sessions / waiting-room queue</strong></td><td>Redis (sorted sets)</td><td>Ephemeral, high-churn, ordering matters (queue position) — a perfect fit for Redis's data structures, no durability requirement beyond the sale window.</td></tr>
+        <tr><td><strong>Notifications / analytics events</strong></td><td>Kafka → wide-column store (Cassandra) / warehouse</td><td>Append-only, massive volume, no update-in-place, read patterns are batch/analytical — this is where NoSQL genuinely wins.</td></tr>
+      </tbody></table>
+      <div class="vs-wrap">
+        <div class="vs-card weak">
+          <div class="vs-tag">Weak answer</div>
+          "I'd use NoSQL like DynamoDB for everything since it scales better than SQL."
+        </div>
+        <div class="vs-card strong">
+          <div class="vs-tag">Strong answer</div>
+          "Seat inventory needs linearizable read-modify-write per row and has tiny cardinality per shard — Postgres sharded by <code>show_id</code> gives me that for free and scales horizontally because shows don't share rows. Catalog is read-heavy and schema-flexible, so it's Elasticsearch. I pick the store per access pattern, not by default."
+        </div>
+      </div>
+      <h3>Core Schema (seat inventory shard)</h3>
+      <pre><span class="cm">-- one physical/logical shard per show_id (or show_id range)</span>
+CREATE TABLE seat_inventory (
+  show_id      BIGINT      NOT NULL,
+  seat_id      VARCHAR(8)  NOT NULL,
+  state        SMALLINT    NOT NULL DEFAULT 0,  <span class="cm">-- 0=available 1=held 2=booked</span>
+  hold_token   VARCHAR(64),
+  held_by      BIGINT,
+  version      INT         NOT NULL DEFAULT 0,  <span class="cm">-- fencing counter</span>
+  expires_at   TIMESTAMPTZ,
+  PRIMARY KEY (show_id, seat_id)
+);
+<span class="cm">-- CAS hold: only succeeds if row is available OR its hold has expired</span>
+UPDATE seat_inventory
+   SET state=1, hold_token=$new_token, held_by=$user, version=version+1,
+       expires_at=now() + interval '8 minutes'
+ WHERE show_id=$show AND seat_id=$seat
+   AND (state=0 OR (state=1 AND expires_at &lt; now()));
+<span class="cm">-- CAS confirm: only succeeds if the caller's token is still current</span>
+UPDATE seat_inventory
+   SET state=2
+ WHERE show_id=$show AND seat_id=$seat
+   AND hold_token=$token AND expires_at &gt;= now();</pre>
+    </section>
+
+    <!-- 7 : ARCHITECTURE -->
+    <section id="s7">
+      <div class="sec-head"><div class="sec-num">07</div><h2>Architecture — Built Incrementally</h2></div>
+      <p class="dim">Interview signal comes from showing <em>why</em> each stage stops working, not jumping straight to microservices.</p>
+
+      <h3>Stage 1 — Monolith, single DB</h3>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 760 150" width="100%" height="150">
+          <defs><marker id="a1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#A19DA8"></path></marker></defs>
+          <g font-family="Arial" font-size="12" fill="#F2EFE9">
+            <rect x="20" y="55" width="130" height="46" rx="6" fill="#1C1A20" stroke="#2C2A31"></rect>
+            <text x="85" y="83" text-anchor="middle">Client</text>
+            <line x1="150" y1="78" x2="280" y2="78" stroke="#A19DA8" marker-end="url(#a1)"></line>
+            <rect x="284" y="55" width="150" height="46" rx="6" fill="#1C1A20" stroke="#8C6A2C"></rect>
+            <text x="359" y="83" text-anchor="middle">App Server</text>
+            <line x1="434" y1="78" x2="570" y2="78" stroke="#A19DA8" marker-end="url(#a1)"></line>
+            <rect x="574" y="45" width="160" height="66" rx="6" fill="#1C1A20" stroke="#7A1526"></rect>
+            <text x="654" y="72" text-anchor="middle" fill="#E88C8C">Single Postgres</text>
+            <text x="654" y="90" text-anchor="middle" font-size="10.5" fill="#6E6A76">catalog + seats + bookings</text>
+          </g>
+        </svg>
+        <div class="diagram-cap">Seat booking = one DB transaction. Works fine until concurrent traffic on a hot show and read traffic both hammer the same DB.</div>
+      </div>
+      <p><strong>Breaks when:</strong> browse traffic (reads) and seat-hold traffic (writes) compete for the same connection pool and row locks — a viral show's read spike starves the booking path even though reads and writes aren't logically related.</p>
+
+      <h3>Stage 2 — Split reads from writes, add caching</h3>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 780 220" width="100%" height="220">
+          <defs><marker id="a2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#A19DA8"></path></marker></defs>
+          <g font-family="Arial" font-size="11.5" fill="#F2EFE9">
+            <rect x="20" y="85" width="110" height="44" rx="6" fill="#1C1A20" stroke="#2C2A31"></rect>
+            <text x="75" y="112" text-anchor="middle">Clients</text>
+            <line x1="130" y1="107" x2="220" y2="107" stroke="#A19DA8" marker-end="url(#a2)"></line>
+            <rect x="224" y="85" width="110" height="44" rx="6" fill="#1C1A20" stroke="#8C6A2C"></rect>
+            <text x="279" y="112" text-anchor="middle">LB / API GW</text>
+
+            <line x1="334" y1="97" x2="430" y2="45" stroke="#A19DA8" marker-end="url(#a2)"></line>
+            <rect x="434" y="20" width="150" height="44" rx="6" fill="#1C1A20" stroke="#2E4A66"></rect>
+            <text x="509" y="47" text-anchor="middle" fill="#7FB0E8">Read Path</text>
+            <line x1="584" y1="42" x2="670" y2="42" stroke="#A19DA8" marker-end="url(#a2)"></line>
+            <rect x="674" y="18" width="90" height="46" rx="6" fill="#1C1A20" stroke="#8C6A2C"></rect>
+            <text x="719" y="46" text-anchor="middle" font-size="10.5">Redis Cache</text>
+
+            <line x1="334" y1="118" x2="430" y2="165" stroke="#A19DA8" marker-end="url(#a2)"></line>
+            <rect x="434" y="146" width="150" height="44" rx="6" fill="#1C1A20" stroke="#2E5C48"></rect>
+            <text x="509" y="173" text-anchor="middle" fill="#4CAF7D">Write Path (seats)</text>
+
+            <line x1="584" y1="42" x2="700" y2="100" stroke="#4a4750" stroke-dasharray="3,3"></line>
+            <line x1="584" y1="168" x2="700" y2="110" stroke="#A19DA8" marker-end="url(#a2)"></line>
+            <rect x="620" y="90" width="140" height="90" rx="6" fill="#1C1A20" stroke="#7A1526"></rect>
+            <text x="690" y="115" text-anchor="middle" fill="#E88C8C">Postgres</text>
+            <text x="690" y="132" text-anchor="middle" font-size="10">Primary (writes)</text>
+            <text x="690" y="152" text-anchor="middle" font-size="10">+ Read Replicas</text>
+            <text x="690" y="168" text-anchor="middle" font-size="9.5" fill="#6E6A76">(catalog reads only)</text>
+          </g>
+        </svg>
+        <div class="diagram-cap">Read path (search/seat-map) hits cache + replicas. Write path (holds/bookings) still goes straight to primary — isolated from read load.</div>
+      </div>
+      <p><strong>Breaks when:</strong> a single show goes viral — thousands of hold attempts per second on the <em>same tiny set of DB rows</em>. Row-lock contention on one show, cache stampede on seat-map reads, and no protection against bot/scalper traffic.</p>
+
+      <h3>Stage 3 — Shard the hot path, add async settlement</h3>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 820 260" width="100%" height="260">
+          <defs><marker id="a3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#A19DA8"></path></marker></defs>
+          <g font-family="Arial" font-size="11" fill="#F2EFE9">
+            <rect x="15" y="100" width="100" height="44" rx="6" fill="#1C1A20" stroke="#2C2A31"></rect>
+            <text x="65" y="126" text-anchor="middle">Clients</text>
+            <line x1="115" y1="122" x2="185" y2="122" stroke="#A19DA8" marker-end="url(#a3)"></line>
+            <rect x="189" y="100" width="120" height="44" rx="6" fill="#1C1A20" stroke="#E8B24C"></rect>
+            <text x="249" y="122" text-anchor="middle" fill="#E8B24C" font-size="10.5">Waiting Room</text>
+            <text x="249" y="136" text-anchor="middle" font-size="9" fill="#6E6A76">(hot shows only)</text>
+
+            <line x1="309" y1="122" x2="380" y2="122" stroke="#A19DA8" marker-end="url(#a3)"></line>
+            <rect x="384" y="100" width="110" height="44" rx="6" fill="#1C1A20" stroke="#8C6A2C"></rect>
+            <text x="439" y="126" text-anchor="middle">API Gateway</text>
+
+            <line x1="439" y1="100" x2="439" y2="45" stroke="#A19DA8" marker-end="url(#a3)"></line>
+            <rect x="360" y="14" width="160" height="40" rx="6" fill="#1C1A20" stroke="#2E4A66"></rect>
+            <text x="440" y="38" text-anchor="middle" fill="#7FB0E8" font-size="10.5">Catalog / Search Svc</text>
+
+            <line x1="494" y1="122" x2="565" y2="122" stroke="#A19DA8" marker-end="url(#a3)"></line>
+            <rect x="569" y="100" width="150" height="44" rx="6" fill="#1C1A20" stroke="#2E5C48"></rect>
+            <text x="644" y="122" text-anchor="middle" fill="#4CAF7D" font-size="10.5">Seat Hold Svc</text>
+            <text x="644" y="136" text-anchor="middle" font-size="9" fill="#6E6A76">Redis lock + TTL</text>
+
+            <line x1="644" y1="144" x2="644" y2="185" stroke="#A19DA8" marker-end="url(#a3)"></line>
+            <rect x="530" y="189" width="220" height="55" rx="6" fill="#1C1A20" stroke="#7A1526"></rect>
+            <text x="640" y="212" text-anchor="middle" fill="#E88C8C" font-size="10.5">Postgres — sharded by show_id</text>
+            <text x="640" y="230" text-anchor="middle" font-size="9" fill="#6E6A76">source of truth, CAS updates</text>
+
+            <line x1="494" y1="130" x2="380" y2="190" stroke="#A19DA8" marker-end="url(#a3)"></line>
+            <rect x="200" y="189" width="180" height="55" rx="6" fill="#1C1A20" stroke="#4a4750"></rect>
+            <text x="290" y="212" text-anchor="middle" font-size="10.5">Booking Orchestrator</text>
+            <text x="290" y="228" text-anchor="middle" font-size="9" fill="#6E6A76">saga: hold → pay → confirm</text>
+          </g>
+        </svg>
+        <div class="diagram-cap">A virtual waiting room throttles admission into the booking flow for hot shows. Redis provides a fast-path lock in front of the Postgres source of truth. A saga-based orchestrator sequences hold → pay → confirm with compensation on failure.</div>
+      </div>
+      <p><strong>Breaks when:</strong> we now need this to work identically for 8,000 shows/day across many venues and regions, with observability, independent scaling of catalog vs. inventory vs. payments, and resilience to any single component failing mid-sale.</p>
+
+      <h3>Stage 4 — Final design</h3>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 900 430" width="100%" height="430">
+          <defs><marker id="a4" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#A19DA8"></path></marker></defs>
+          <g font-family="Arial" font-size="10.5" fill="#F2EFE9">
+
+            <rect x="20" y="10" width="860" height="40" rx="6" fill="#1C1A20" stroke="#2C2A31"></rect>
+            <text x="450" y="34" text-anchor="middle" fill="#A19DA8">CDN (static assets, posters) &nbsp;·&nbsp; Clients (web / mobile)</text>
+
+            <line x1="450" y1="50" x2="450" y2="72" stroke="#A19DA8" marker-end="url(#a4)"></line>
+            <rect x="330" y="76" width="240" height="38" rx="6" fill="#1C1A20" stroke="#E8B24C"></rect>
+            <text x="450" y="99" text-anchor="middle" fill="#E8B24C">Virtual Waiting Room (token-based admission)</text>
+
+            <line x1="450" y1="114" x2="450" y2="136" stroke="#A19DA8" marker-end="url(#a4)"></line>
+            <rect x="330" y="140" width="240" height="34" rx="6" fill="#1C1A20" stroke="#8C6A2C"></rect>
+            <text x="450" y="161" text-anchor="middle">API Gateway (authn, rate limit)</text>
+
+            <!-- branch to 4 services -->
+            <line x1="360" y1="174" x2="130" y2="200" stroke="#A19DA8" marker-end="url(#a4)"></line>
+            <line x1="420" y1="174" x2="330" y2="200" stroke="#A19DA8" marker-end="url(#a4)"></line>
+            <line x1="480" y1="174" x2="560" y2="200" stroke="#A19DA8" marker-end="url(#a4)"></line>
+            <line x1="560" y1="174" x2="770" y2="200" stroke="#A19DA8" marker-end="url(#a4)"></line>
+
+            <rect x="30" y="204" width="190" height="46" rx="6" fill="#1C1A20" stroke="#2E4A66"></rect>
+            <text x="125" y="224" text-anchor="middle" fill="#7FB0E8">Catalog Svc</text>
+            <text x="125" y="240" text-anchor="middle" font-size="9" fill="#6E6A76">Postgres + CDC → ES</text>
+
+            <rect x="240" y="204" width="190" height="46" rx="6" fill="#1C1A20" stroke="#2E4A66"></rect>
+            <text x="335" y="224" text-anchor="middle" fill="#7FB0E8">Search Svc</text>
+            <text x="335" y="240" text-anchor="middle" font-size="9" fill="#6E6A76">Elasticsearch</text>
+
+            <rect x="450" y="204" width="200" height="46" rx="6" fill="#1C1A20" stroke="#2E5C48"></rect>
+            <text x="550" y="224" text-anchor="middle" fill="#4CAF7D">Seat Inventory Svc</text>
+            <text x="550" y="240" text-anchor="middle" font-size="9" fill="#6E6A76">Redis fast-path + fencing tokens</text>
+
+            <rect x="670" y="204" width="200" height="46" rx="6" fill="#1C1A20" stroke="#4a4750"></rect>
+            <text x="770" y="224" text-anchor="middle">Booking Orchestrator</text>
+            <text x="770" y="240" font-size="9" fill="#6E6A76" text-anchor="middle">Saga: hold→pay→confirm</text>
+
+            <line x1="550" y1="250" x2="550" y2="284" stroke="#A19DA8" marker-end="url(#a4)"></line>
+            <rect x="440" y="288" width="220" height="46" rx="6" fill="#1C1A20" stroke="#7A1526"></rect>
+            <text x="550" y="308" text-anchor="middle" fill="#E88C8C">Postgres, sharded by show_id</text>
+            <text x="550" y="324" text-anchor="middle" font-size="9" fill="#6E6A76">source of truth for seat state</text>
+
+            <line x1="770" y1="250" x2="770" y2="284" stroke="#A19DA8" marker-end="url(#a4)"></line>
+            <rect x="680" y="288" width="180" height="46" rx="6" fill="#1C1A20" stroke="#4a4750"></rect>
+            <text x="770" y="308" text-anchor="middle">Payment Svc</text>
+            <text x="770" y="324" text-anchor="middle" font-size="9" fill="#6E6A76">external PSP, idempotent</text>
+
+            <line x1="770" y1="250" x2="330" y2="290" stroke="#4a4750" stroke-dasharray="3,3" marker-end="url(#a4)"></line>
+            <rect x="230" y="288" width="180" height="46" rx="6" fill="#1C1A20" stroke="#4a4750"></rect>
+            <text x="320" y="308" text-anchor="middle">Bookings Store</text>
+            <text x="320" y="324" text-anchor="middle" font-size="9" fill="#6E6A76">Postgres, sharded by booking date/user</text>
+
+            <line x1="770" y1="334" x2="770" y2="360" stroke="#A19DA8" marker-end="url(#a4)"></line>
+            <rect x="30" y="364" width="840" height="46" rx="6" fill="#1C1A20" stroke="#2C2A31"></rect>
+            <text x="450" y="384" text-anchor="middle" fill="#A19DA8">Kafka Event Bus — booking.confirmed / booking.cancelled / hold.expired</text>
+            <text x="450" y="400" text-anchor="middle" font-size="9" fill="#6E6A76">→ Notification Svc &nbsp;·&nbsp; Analytics/Cassandra &nbsp;·&nbsp; CDC into Search index</text>
+          </g>
+        </svg>
+        <div class="diagram-cap">Every box scales independently. Seat contention is contained to the Seat Inventory shard for one show — the rest of the system just routes and waits.</div>
+      </div>
+
+      <div class="stage-tabs">
+        <div class="stage-tab">Stage 1: Monolith</div>
+        <div class="stage-tab">Stage 2: Read/Write Split</div>
+        <div class="stage-tab">Stage 3: Sharded Hot Path</div>
+        <div class="stage-tab active">Stage 4: Final</div>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="sec-head"><div class="sec-num">08</div><h2>Component Deep Dives</h2></div>
+
+      <h3>8.1 — Seat Inventory &amp; the Hold/Confirm Protocol</h3>
+      <p>This is the component that decides whether the interview goes well. The protocol, end to end:</p>
+      <ol>
+        <li><strong>Hold:</strong> client requests seats → CAS write on <code>seat_inventory</code> (or a Redis-fronted equivalent) sets state to <code>HELD</code>, stamps a monotonically increasing <strong>fencing token</strong>, and an 8-minute TTL. Fails fast (409) if the seat is already held/booked.</li>
+        <li><strong>Checkout:</strong> user enters payment; system has already reserved the seat, so payment gateway latency doesn't block anyone else.</li>
+        <li><strong>Confirm:</strong> booking service calls confirm with the <em>same token</em> issued at hold time. The DB only accepts the write if the token still matches and hasn't expired — this is the fencing mechanism that defeats the classic "stale worker" bug (a delayed payment webhook can never steal a seat that has since been re-issued to someone else).</li>
+        <li><strong>Expiry:</strong> unconfirmed holds revert to <code>AVAILABLE</code> either lazily (checked on next hold attempt) or via a background reaper — never blocking the hot path on cleanup.</li>
+      </ol>
+      <div class="callout">
+        <div class="label">Redis vs. DB lock — why both</div>
+        Redis (<code>SET NX PX</code>) gives sub-millisecond lock acquisition for the hot path and absorbs burst QPS. But Redis alone risks losing a lock on failover. The pattern used here: Redis is the <strong>fast-path optimistic gate</strong> (reject obviously-taken seats instantly, protect the DB from thundering-herd writes), while Postgres with the fencing-token CAS is the <strong>durable source of truth</strong> that makes the final call. Losing the Redis node degrades performance, not correctness.
+      </div>
+
+      <h3>8.2 — Virtual Waiting Room</h3>
+      <p>The actual mechanism Ticketmaster uses for major on-sales. When traffic to a show crosses a threshold, new arrivals get a queue token (Redis sorted set, score = arrival time) instead of hitting the booking flow directly. A background admitter releases N tokens/second into the real booking flow — N tuned to what the seat-inventory shard and payment gateway can sustain. Clients poll <code>/waiting-room/status</code> and get a live position estimate.</p>
+      <p class="dim">This turns an uncontrolled thundering herd into a controlled, fair, rate-limited stream — protecting every downstream service without needing any of them to be infinitely scalable.</p>
+
+      <h3>8.3 — Booking Orchestrator (Saga)</h3>
+      <p>Hold → Pay → Confirm spans three services (inventory, payment, booking) that can't share a single ACID transaction. Modeled as a saga with compensation:</p>
+      <table>
+        <tbody><tr><th>Step</th><th>Forward action</th><th>Compensation on failure</th></tr>
+        <tr><td>1</td><td>Place hold on seats</td><td>—</td></tr>
+        <tr><td>2</td><td>Charge payment (idempotency key = holdId)</td><td>Release hold if charge fails/times out</td></tr>
+        <tr><td>3</td><td>Write confirmed booking row</td><td>Refund payment if booking write fails</td></tr>
+        <tr><td>4</td><td>Emit <code>booking.confirmed</code> event</td><td>N/A — booking already durable at this point</td></tr>
+      </tbody></table>
+
+      <h3>8.4 — Search / Catalog</h3>
+      <p>Elasticsearch indexed off a CDC stream from the Postgres catalog (Debezium-style), so writes to shows/pricing/venues never touch the read-serving path directly. Geo + facet queries (city, date, genre, language) live entirely here; strong consistency isn't needed — a newly published show appearing 2 seconds later in search is invisible to users.</p>
+
+      <h3>8.5 — Optimistic vs. Pessimistic Locking, in Full</h3>
+      <p>Every "how do you prevent double-booking" answer eventually has to pick a locking strategy for the actual row update. The two options aren't interchangeable — they trade off differently under contention, and a real system typically uses <strong>both</strong>, in different parts of the flow.</p>
+
+      <div class="vs-wrap">
+        <div class="vs-card strong">
+          <div class="vs-tag">Optimistic locking</div>
+          <p class="dim" style="margin-bottom:0;">Don't lock anything up front. Read the row, do your work in memory, then write back a conditional update that only succeeds if <strong>nothing changed underneath you</strong> (checked via a version number, or the row's current state). If the condition fails, someone else won — retry or fail fast. No lock is ever held across application logic or network calls.</p>
+        </div>
+        <div class="vs-card weak">
+          <div class="vs-tag">Pessimistic locking</div>
+          <p class="dim" style="margin-bottom:0;">Acquire a real row-level lock <em>before</em> reading, inside a transaction (<code>SELECT ... FOR UPDATE</code>). Every other transaction wanting that row blocks until you commit or roll back. Simple to reason about, but the lock is held for the full duration of your transaction — including any slow application logic in between.</p>
+        </div>
+      </div>
+
+      <h4 style="font-family:var(--sans); text-transform:none; letter-spacing:normal; color:var(--text); font-size:14.5px; margin:20px 0 6px;">Optimistic — SQL (this is what §6/§8.1's fencing-token CAS already is)</h4>
+      <pre><span class="cm">-- no lock acquired; read is a plain SELECT, can even be read-committed / snapshot</span>
+SELECT state, version, expires_at FROM seat_inventory
+ WHERE show_id = $1 AND seat_id = $2;
+
+<span class="cm">-- application checks state == AVAILABLE in memory, then issues:</span>
+UPDATE seat_inventory
+   SET state = 1, hold_token = $new_token, held_by = $user,
+       version = version + 1, expires_at = now() + interval '8 minutes'
+ WHERE show_id = $1 AND seat_id = $2
+   AND version = $version_read_earlier;      <span class="cm">-- CAS guard: 0 rows updated = someone else won</span>
+
+<span class="cm">-- driver/ORM checks rows-affected; 0 rows = OptimisticLockException / retry</span></pre>
+
+      <h4 style="font-family:var(--sans); text-transform:none; letter-spacing:normal; color:var(--text); font-size:14.5px; margin:20px 0 6px;">Pessimistic — SQL (row lock held for the whole transaction)</h4>
+      <pre><span class="cm">-- lock acquired the instant this runs; other transactions on this row now block</span>
+BEGIN;
+
+SELECT state, expires_at FROM seat_inventory
+ WHERE show_id = $1 AND seat_id = $2
+   FOR UPDATE;                                <span class="cm">-- blocking row lock</span>
+
+<span class="cm">-- application checks state == AVAILABLE, still holding the lock</span>
+UPDATE seat_inventory
+   SET state = 1, hold_token = $token, held_by = $user,
+       expires_at = now() + interval '8 minutes'
+ WHERE show_id = $1 AND seat_id = $2;
+
+COMMIT;                                        <span class="cm">-- lock released only here</span>
+
+<span class="cm">-- multi-seat booking (group of 4): lock ALL seats in one transaction,</span>
+<span class="cm">-- in a FIXED, deterministic order — otherwise two users booking the</span>
+<span class="cm">-- same 2 seats in opposite order deadlock each other</span>
+BEGIN;
+SELECT * FROM seat_inventory
+ WHERE show_id = $1 AND seat_id = ANY($seat_ids)
+ ORDER BY seat_id                              <span class="cm">-- deterministic lock order = no deadlock</span>
+   FOR UPDATE;
+<span class="cm">-- ... validate all 4 are AVAILABLE, then UPDATE all 4 ...</span>
+COMMIT;</pre>
+
+      <h4 style="font-family:var(--sans); text-transform:none; letter-spacing:normal; color:var(--text); font-size:14.5px; margin:20px 0 6px;">Code changes needed — optimistic (Java / Spring Data JPA)</h4>
+      <pre><span class="cm">// 1. Add a @Version column — JPA auto-generates the CAS UPDATE + version bump</span>
+<span class="kw">@Entity</span>
+<span class="cm">class</span> SeatInventory {
+    <span class="kw">@Id</span> Long id;
+    Long showId;
+    String seatId;
+    Integer state;
+    String holdToken;
+    <span class="kw">@Version</span> Long version;      <span class="cm">// this one annotation is the entire mechanism</span>
+}
+
+<span class="cm">// 2. Catch the failure and turn it into a client-facing 409, don't silently retry</span>
+<span class="kw">@Transactional</span>
+<span class="cm">void</span> holdSeatOptimistic(Long showId, String seatId, Long userId) {
+    SeatInventory seat = repo.findByShowIdAndSeatId(showId, seatId);
+    <span class="kw">if</span> (seat.getState() != AVAILABLE)
+        <span class="kw">throw new</span> SeatUnavailableException(seatId);
+    seat.setState(HELD);
+    seat.setHoldToken(newToken());
+    <span class="kw">try</span> {
+        repo.saveAndFlush(seat);              <span class="cm">// fires the version-guarded UPDATE</span>
+    } <span class="kw">catch</span> (OptimisticLockingFailureException e) {
+        <span class="kw">throw new</span> SeatConflictException(seatId);  <span class="cm">// -> HTTP 409, client re-reads seat map</span>
+    }
+}</pre>
+
+      <h4 style="font-family:var(--sans); text-transform:none; letter-spacing:normal; color:var(--text); font-size:14.5px; margin:20px 0 6px;">Code changes needed — pessimistic (Java / Spring Data JPA)</h4>
+      <pre><span class="cm">// 1. Request a PESSIMISTIC_WRITE lock hint on the query — JPA turns this into FOR UPDATE</span>
+<span class="kw">interface</span> SeatInventoryRepository <span class="kw">extends</span> JpaRepository&lt;SeatInventory, Long&gt; {
+
+    <span class="kw">@Lock</span>(LockModeType.PESSIMISTIC_WRITE)
+    <span class="kw">@Query</span>(<span class="st">"select s from SeatInventory s where s.showId=:showId and s.seatId in :seatIds order by s.seatId"</span>)
+    List&lt;SeatInventory&gt; lockForHold(<span class="kw">@Param</span>(<span class="st">"showId"</span>) Long showId,
+                                     <span class="kw">@Param</span>(<span class="st">"seatIds"</span>) List&lt;String&gt; seatIds);
+}
+
+<span class="cm">// 2. The transaction now holds real row locks for its full duration —</span>
+<span class="cm">//    keep it SHORT, and never call an external service (payment!) while inside it</span>
+<span class="kw">@Transactional</span>
+<span class="cm">void</span> holdSeatsPessimistic(Long showId, List&lt;String&gt; seatIds, Long userId) {
+    List&lt;SeatInventory&gt; seats = repo.lockForHold(showId, seatIds);   <span class="cm">// blocks here if contended</span>
+    <span class="kw">for</span> (SeatInventory s : seats) {
+        <span class="kw">if</span> (s.getState() != AVAILABLE) <span class="kw">throw new</span> SeatUnavailableException(s.getSeatId());
+    }
+    seats.forEach(s -&gt; { s.setState(HELD); s.setHoldToken(newToken()); });
+    <span class="cm">// commit on method exit releases every lock at once</span>
+}</pre>
+
+      <table>
+        <tbody><tr><th>Dimension</th><th>Optimistic</th><th>Pessimistic</th></tr>
+        <tr><td>Lock held during</td><td>Nothing — only the final write is conditional</td><td>Entire transaction, including app logic between read and write</td></tr>
+        <tr><td>Behavior under high contention</td><td>Retries pile up, throughput drops as conflict rate rises</td><td>Requests queue and wait — throughput degrades more gracefully but latency spikes</td></tr>
+        <tr><td>Deadlock risk</td><td>None — never holds more than one lock at a time</td><td>Real, for multi-row transactions — must lock rows in a fixed order</td></tr>
+        <tr><td>Cost when uncontended (the common case)</td><td>Near-zero — just an indexed UPDATE</td><td>Same, but still pays transaction/connection overhead for the lock machinery</td></tr>
+        <tr><td>Failure mode client sees</td><td>Immediate 409, safe to show "seat just taken"</td><td>Increased latency (waiting on the lock), then success or timeout</td></tr>
+        <tr><td>Best fit here</td><td>Single-seat hold on the hot path — conflicts are rare (one show, one seat) and must fail fast</td><td>Multi-seat group booking's final confirm — needs true all-or-nothing atomicity across several rows in one transaction</td></tr>
+      </table>
+
+      <div class="callout">
+        <div class="label">Why this design uses both, not one or the other</div>
+        The <strong>hold</strong> step (§8.1) is optimistic — CAS on a single row, because contention on a specific seat is rare and the system must reject fast rather than make 5,000 concurrent buyers queue behind a DB lock. The <strong>group-booking confirm</strong> step, which must atomically flip 2–8 seats from HELD to BOOKED as one unit, is where a short-lived pessimistic transaction (<code>FOR UPDATE ... ORDER BY seat_id</code>) is the simpler correct answer — the seats are already reserved by this point (low contention), and "all seats confirm or none do" is naturally a transaction, not a per-row CAS loop with manual rollback.
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="sec-head"><div class="sec-num">09</div><h2>Trade-off Analysis</h2></div>
+      <div class="grid2">
+        <div class="card accent-green">
+          <h4>Shard by show_id (chosen)</h4>
+          <p class="dim">✓ Contention is naturally bounded per shard<br>✓ Horizontal scale is linear with number of shows<br>✓ Simple CAS semantics, no distributed transactions<br>✗ A single mega-event (one show, 50k+ seats/GA) can still create a hot shard — needs sub-sharding by seat range as an escape hatch</p>
+        </div>
+        <div class="card accent-red">
+          <h4>Single global inventory table</h4>
+          <p class="dim">✓ Simpler mental model, one place to look<br>✗ Every hot show contends for the same lock manager / connection pool as every other show<br>✗ Scaling requires scaling the whole table, not just the hot part — rejected</p>
+        </div>
+      </div>
+      <div class="grid2" style="margin-top:16px;">
+        <div class="card accent-green">
+          <h4>Soft hold + fencing token (chosen)</h4>
+          <p class="dim">✓ Decouples slow payment latency from inventory correctness<br>✓ Survives delayed/duplicate webhooks safely<br>✗ Adds a TTL-management + reaper responsibility</p>
+        </div>
+        <div class="card accent-red">
+          <h4>Pessimistic DB lock held through payment</h4>
+          <p class="dim">✓ Conceptually simpler<br>✗ Holds a row lock (or connection) for the entire payment round-trip (seconds to minutes with 3DS) — catastrophic under load, rejected</p>
+        </div>
+      </div>
+      <div class="grid2" style="margin-top:16px;">
+        <div class="card accent-green">
+          <h4>Virtual waiting room for hot shows</h4>
+          <p class="dim">✓ Predictable, bounded load on every downstream service<br>✓ Fair, transparent UX (queue position)<br>✗ Extra hop/latency for the (common) non-hot-show case — only engage it above a traffic threshold</p>
+        </div>
+        <div class="card accent-red">
+          <h4>No admission control, scale everything to peak</h4>
+          <p class="dim">✓ Simpler, no queue UX<br>✗ Requires provisioning (and paying for) 50-100x baseline capacity that sits idle 99% of the time — rejected on cost + still doesn't bound DB contention</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="sec-head"><div class="sec-num">10</div><h2>Bottlenecks</h2></div>
+      <table>
+        <tbody><tr><th>Bottleneck</th><th>Why it happens</th><th>Mitigation</th></tr>
+        <tr><td>Hot-show row contention</td><td>Thousands of holds/sec targeting ~150 rows</td><td>Redis fast-path gate in front of DB; waiting room caps arrival rate; sub-shard by seat-range for mega-events</td></tr>
+        <tr><td>Seat-map cache stampede</td><td>Cache expiry + viral traffic = thousands of simultaneous rebuild requests</td><td>Request coalescing (single-flight), short TTL + jitter, cache-aside with stale-while-revalidate</td></tr>
+        <tr><td>Payment gateway latency/limits</td><td>External dependency, 3DS/OTP adds seconds-minutes, has its own rate limits</td><td>Async confirmation via webhook, circuit breaker + queue-and-retry, hold TTL absorbs the wait</td></tr>
+        <tr><td>DB connection pool exhaustion</td><td>Burst of short-lived write transactions during flash sale</td><td>Connection pooling (PgBouncer), Redis absorbs the burst before it reaches Postgres</td></tr>
+        <tr><td>Bot / scalper traffic</td><td>Automated scripts snipe holds faster than humans</td><td>Rate limiting per user/IP/device, CAPTCHA at waiting-room entry, purchase-limit enforcement</td></tr>
+      </tbody></table>
+    </section>
+
+    <!-- 11 -->
+    <section id="s11">
+      <div class="sec-head"><div class="sec-num">11</div><h2>Failure Handling</h2></div>
+      <ul>
+        <li><strong>Hold expires mid-payment:</strong> confirm() rejects with the fencing-token check; client is shown "seats released, please retry" rather than silently succeeding into a race.</li>
+        <li><strong>Payment succeeds but confirm-write fails</strong> (DB blip): orchestrator retries the write (idempotent on holdId); if it still fails after backoff, auto-refund and notify the user — never leave a charged-but-unbooked state.</li>
+        <li><strong>Duplicate client retries</strong> (network timeout, user double-clicks Pay): every write is idempotent via an <code>Idempotency-Key</code>, so retries are safe no-ops on the second call.</li>
+        <li><strong>Redis node failure:</strong> fast-path gate degrades to "always ask Postgres" — slower, still correct, because Postgres CAS is the real source of truth.</li>
+        <li><strong>Payment gateway down:</strong> circuit breaker trips, holds are extended (grace TTL) rather than expired, user sees "payment temporarily unavailable, your seats are safe."</li>
+        <li><strong>One shard/DB partition down:</strong> only shows on that shard are affected — browse and booking for every other show continues unaffected (this is the payoff of sharding by show_id).</li>
+      </ul>
+    </section>
+
+    <!-- 12 -->
+    <section id="s12">
+      <div class="sec-head"><div class="sec-num">12</div><h2>Security</h2></div>
+      <ul>
+        <li><strong>AuthN/AuthZ:</strong> OAuth2/JWT for user sessions; booking mutation endpoints require a valid session tied to the holdId's owner.</li>
+        <li><strong>Payment data:</strong> never touch raw card data — tokenize via PSP (PCI-DSS scope stays with the PSP, not us).</li>
+        <li><strong>Bot/scalper mitigation:</strong> per-account purchase caps, device fingerprinting, CAPTCHA at waiting-room entry for hot shows, rate limiting on hold attempts per user/IP.</li>
+        <li><strong>Idempotency keys</strong> double as light replay protection on mutating endpoints.</li>
+        <li><strong>Ticket integrity:</strong> signed QR codes (short-lived signature) to prevent forged/duplicated e-tickets at venue entry.</li>
+        <li><strong>Admin surfaces</strong> (publishing shows, pricing) behind separate RBAC-gated internal APIs, not the public gateway.</li>
+      </ul>
+    </section>
+
+    <!-- 13 -->
+    <section id="s13">
+      <div class="sec-head"><div class="sec-num">13</div><h2>Observability</h2></div>
+      <ul>
+        <li><strong>Per-show dashboards</strong> auto-created when a show crosses a traffic threshold: hold success rate, hold→confirm conversion, waiting-room queue depth &amp; drain rate.</li>
+        <li><strong>Golden signals</strong> per service: latency (p50/p99), error rate, saturation (DB connections, Redis memory), traffic.</li>
+        <li><strong>Distributed tracing</strong> across the saga (hold → pay → confirm) with a single correlation ID, so a stuck booking can be traced across 3+ services in one view.</li>
+        <li><strong>Alerting</strong> on: hold-rejection rate spike (contention or a stuck reaper), payment success-rate drop, waiting-room admit-rate falling behind arrival-rate (queue growing unbounded).</li>
+        <li><strong>Business metric, not just infra:</strong> "seats sold / seats available" in real time per show — the number that actually matters to the business during a launch.</li>
+      </ul>
+    </section>
+
+    <!-- 14 -->
+    <section id="s14">
+      <div class="sec-head"><div class="sec-num">14</div><h2>Cross-Questions &amp; Weak vs. Strong Answers</h2></div>
+
+      <h3>"How exactly do you prevent double-booking under high concurrency?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"I'd put a lock on the seat before someone books it."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"A compare-and-swap write scoped to (show_id, seat_id), guarded by a monotonic fencing token issued at hold time. Confirm only succeeds if the token is still current and unexpired — so even a delayed retry or stale worker physically cannot overwrite a newer hold. Redis in front absorbs burst QPS; Postgres CAS is the correctness guarantee."</div>
+      </div>
+
+      <h3>"Why not just use DynamoDB/Cassandra for seats — isn't NoSQL better at scale?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"NoSQL scales better than SQL, so it's the better choice."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"Scale here isn't about total data volume — a show has ~150–50,000 rows. It's about correctness under concurrent writes to the same few rows, which needs linearizable read-modify-write. A relational store sharded by show_id gives that for free, and horizontal scale comes from partitioning by show rather than from the storage engine — so the SQL-vs-NoSQL scaling argument doesn't even apply here."</div>
+      </div>
+
+      <h3>"How do you handle a global-tour-level flash sale — millions of people, one show?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"Just add more servers and a bigger database."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"Recognize that write volume is capped by seat count regardless of how many people show up — the real problem is read volume and fairness. A virtual waiting room admits users at a controlled rate into the booking flow; the seat shard never sees more concurrent writers than the admission rate allows. This converts an unbounded problem into a bounded, tunable one."</div>
+      </div>
+
+      <h3>"What happens if the payment succeeds but your confirm-booking write fails right after?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"That shouldn't really happen."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"It will happen at scale. The orchestrator retries the confirm write idempotently (keyed on holdId); if retries exhaust, it triggers an automatic refund and notifies the user rather than leaving a charged-but-unbooked state — the saga's compensation path exists precisely for this."</div>
+      </div>
+
+      <h3>"Your seat map shows a seat as available, but it's actually just been held by someone else in checkout. Isn't that a bug?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"That's a bug, the seat map should always be accurate."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"That's an intentional, bounded staleness — the seat-map read path is AP by design (§3), refreshed every 1-2s or via push. The correctness guarantee lives entirely in the write path's CAS check at hold time: worst case, a user selects a seat that's just been taken and gets an immediate, clear 409 — never a silent double-booking."</div>
+      </div>
+
+      <h3>"A user double-clicks 'Select Seat' — does that fire two concurrent hold requests for the same seat from the same person?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"The frontend should just disable the button after one click."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"UI debouncing is a nice-to-have, never the guarantee. Both requests race into the same CAS UPDATE; only one gets <code>state=0 → 1</code> (rows_affected=1), the other sees rows_affected=0 and is told 'already held' — by the same fencing check that stops a stranger, since the DB doesn't distinguish 'your other tab' from another user at the row level. The client should also send an <code>Idempotency-Key</code> per attempt so an identical retry after a timeout doesn't even reach the CAS twice."</div>
+      </div>
+
+      <h3>"User holds 4 seats for a group booking, pays, but the confirm transaction fails after seat 2 of 4 — do they end up with a half-confirmed booking?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"We'd confirm each seat one at a time and hope they all go through."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"Never loop individual CAS updates for a group booking — that's exactly how you get 2-of-4 confirmed. The confirm step locks all 4 rows pessimistically in one transaction (<code>SELECT ... FOR UPDATE ... ORDER BY seat_id</code>, §8.5), flips all 4 to BOOKED, and commits atomically. If any row fails validation (e.g. one hold already expired), the whole transaction rolls back — the user keeps their other 3 holds (if still unexpired) and sees exactly which seat failed, not a partial booking."</div>
+      </div>
+
+      <h3>"A seat's hold TTL expires at the exact millisecond the confirm request arrives — which one wins?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"We'd need very precise clocks to handle that correctly."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"No clock precision needed — the DB is the single arbiter. Confirm's CAS is <code>WHERE hold_token=$token AND expires_at &gt;= now()</code>, evaluated atomically inside one statement against Postgres's own clock at execution time. Either the row still has an unexpired matching token and confirm wins, or it doesn't and confirm is rejected with 'hold expired, please retry' — there's no window where both the reaper and the confirm can act on stale state, because whichever executes first wins the row and the second sees updated data."</div>
+      </div>
+
+      <h3>"What stops a user from opening 10 browser tabs (or fake accounts) to hold way more seats than allowed?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"We'd limit one hold per session."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"Session-scoped limits are trivial to bypass with incognito tabs or new accounts. The real control is a per-<em>user-identity</em> purchase cap enforced server-side at hold time (count active holds + confirmed bookings for that user_id across the show, reject the 11th), backed by device fingerprinting and rate limiting per IP to catch the multi-account case (§12). It's defense in depth, not a single check — no single signal fully stops a determined scalper, but stacking them raises the cost enough to matter."</div>
+      </div>
+
+      <h3>"Your booking is General Admission (no seat numbers, just a headcount) — does the same CAS pattern still prevent overselling?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"We'd just decrement a counter for each ticket sold."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"A plain decrement race-conditions under concurrency — 'read counter, subtract, write' loses updates the same way a naive seat check does. The fix is the same CAS discipline applied to a counter row: <code>UPDATE ga_inventory SET sold = sold + $qty WHERE show_id=$1 AND sold + $qty &lt;= capacity</code> in one atomic statement — the WHERE clause is the inventory check and the write in a single round trip, so two concurrent buyers can't both read '5 left' and both succeed in buying 5. GA is a simplification of the seat-level model (§2), not a different one — a single row instead of one row per seat."</div>
+      </div>
+
+      <h3>"The Redis fast-path lock says a seat is free, but Postgres — the actual source of truth — still shows it as HELD. How does that get resolved?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"That shouldn't happen since Redis and Postgres are kept in sync."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"They're allowed to disagree briefly — Redis is a cache/gate, not a second source of truth (§8.1), so this isn't a consistency violation, it's an expected transient state. If Redis says available, the request still proceeds to the Postgres CAS, which is the actual authority and will correctly reject it if the row is still HELD there — worst case, Redis being stale costs one wasted round trip to Postgres, never a double-booking. This is precisely why the design never lets Redis alone authorize a booking."</div>
+      </div>
+    </section>
+
+    <!-- CODE -->
+    <section id="s-code">
+      <div class="sec-head"><div class="sec-num">CODE</div><h2>Companion Implementation — Seat Hold Simulator</h2></div>
+      <p>A working Python model of the hold/confirm protocol from §8.1 — sharded per show, using fencing tokens for the compare-and-swap. Two scenarios are simulated: (1) a flash-sale race where 20 users contend for 5 seats, proving no double-booking; (2) a late/stale payment webhook arriving after the original hold expired, proving the fencing token blocks it from stealing a seat that's since been re-issued.</p>
+
+      <pre><span class="cm">class</span> SeatInventoryShard:
+    <span class="cm">"""One shard = one show_id. Mirrors the Postgres CAS statements in §6."""</span>
+
+    <span class="cm">def</span> hold(self, seat_id, user_id):
+        <span class="cm"># lazily reclaim expired holds, then atomically:</span>
+        <span class="cm"># version += 1; token = f"{version}:{uuid}"; state = HELD; expires_at = now + TTL</span>
+        ...
+
+    <span class="cm">def</span> confirm(self, seat_id, token, user_id):
+        <span class="cm"># reject unless token == current token AND not expired</span>
+        <span class="cm"># -&gt; this is the fencing check that defeats stale/delayed writers</span>
+        ...</pre>
+
+      <h3>Run output</h3>
+      <div class="code-out">=== Flash-sale simulation: 20 users, 5 seats, 4-way contention per seat ===
+Holds granted     : 5 (expected 5 -- one winner per seat)
+Holds rejected    : 15 (expected 15)
+Confirmed bookings: 5 (expected 5)
+Final seat states : {'A1': 'booked', 'A2': 'booked', 'A3': 'booked', 'A4': 'booked', 'A5': 'booked'}
+
+[PASS] No double-booking under concurrent load.
+
+=== Stale-token (late webhook) simulation ===
+Late confirm with expired token_a succeeded? False (expected False)
+Fresh confirm with valid token_b succeeded?  True (expected True)
+[PASS] Fencing token blocks the stale write; the seat stays correctly booked to user-B.</div>
+      <p class="dim" style="margin-top:14px;">Full source: <code>seat_lock.py</code> (attached alongside this document).</p>
+    </section>
+
+    <footer>
+      HLD Reference · Ticketing Platform · 14-section template, incremental architecture, staff/principal interview bar
+    </footer>
+
+  </main>
+</div>
+
+
+</body></html>

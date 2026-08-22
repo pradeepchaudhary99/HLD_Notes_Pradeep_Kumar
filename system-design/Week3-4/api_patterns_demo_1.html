@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HTTP vs REST vs GraphQL vs WebSocket vs Webhook</title>
+<style>
+  :root{
+    --bg:#0b0f1a;
+    --panel:#121826;
+    --panel2:#161d2e;
+    --border:#26314a;
+    --cyan:#00e5ff;
+    --magenta:#ff2fd6;
+    --pink:#ff5ca8;
+    --yellow:#ffe600;
+    --green:#00ff8c;
+    --orange:#ff9d00;
+    --red:#ff3b5c;
+    --grey:#8b95b3;
+    --text:#e8ecf7;
+    --muted:#8b95b3;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; padding:20px;
+    font-family:'Segoe UI', Roboto, Arial, sans-serif;
+    background:
+      radial-gradient(circle at 12% 8%, #1a2138 0%, transparent 45%),
+      radial-gradient(circle at 88% 92%, #1a1030 0%, transparent 45%),
+      var(--bg);
+    color:var(--text); min-height:100vh;
+  }
+  h1{
+    text-align:center; font-size:25px; margin:0 0 4px;
+    background:linear-gradient(90deg,var(--cyan),var(--magenta));
+    -webkit-background-clip:text; background-clip:text; color:transparent;
+  }
+  .subtitle{ text-align:center; color:var(--muted); font-size:13.5px; margin-bottom:20px; }
+  .subtitle b{ color:var(--yellow); }
+
+  .tabs{
+    max-width:1100px; margin:0 auto 18px; display:flex; gap:8px;
+    flex-wrap:wrap; justify-content:center;
+  }
+  .tab{
+    padding:10px 18px; border-radius:10px; cursor:pointer;
+    background:var(--panel); border:1.5px solid var(--border);
+    font-size:13px; font-weight:700; color:var(--muted);
+    transition:all .18s ease; user-select:none;
+  }
+  .tab:hover{ color:var(--text); }
+  .tab.active[data-tab="http"]{ border-color:var(--cyan); color:var(--cyan); box-shadow:0 0 14px -3px var(--cyan); background:#0d2229;}
+  .tab.active[data-tab="rest"]{ border-color:var(--green); color:var(--green); box-shadow:0 0 14px -3px var(--green); background:#0d2317;}
+  .tab.active[data-tab="graphql"]{ border-color:var(--pink); color:var(--pink); box-shadow:0 0 14px -3px var(--pink); background:#2a0f22;}
+  .tab.active[data-tab="ws"]{ border-color:var(--yellow); color:var(--yellow); box-shadow:0 0 14px -3px var(--yellow); background:#2a2405;}
+  .tab.active[data-tab="webhook"]{ border-color:var(--orange); color:var(--orange); box-shadow:0 0 14px -3px var(--orange); background:#2a1a05;}
+  .tab.active[data-tab="state"]{ border-color:var(--grey); color:#cfd6ea; box-shadow:0 0 14px -3px var(--grey); background:#171d2c;}
+
+  .wrap{ max-width:1100px; margin:0 auto; }
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:14px;
+    padding:20px; box-shadow:0 8px 30px rgba(0,0,0,.35); display:none;
+  }
+  .panel.show{ display:block; animation:fadeIn .25s ease; }
+  @keyframes fadeIn{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:translateY(0);} }
+
+  .panel-head{ display:flex; justify-content:space-between; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:4px;}
+  .panel-head h2{ margin:0; font-size:19px; }
+  .panel-head .tagline{ color:var(--muted); font-size:12.5px; }
+
+  .grid2{ display:grid; grid-template-columns:1.3fr 1fr; gap:16px; margin-top:16px; }
+  @media (max-width:880px){ .grid2{ grid-template-columns:1fr; } }
+
+  /* WIRE / NODE DIAGRAM */
+  .wire{
+    position:relative; height:120px; background:var(--panel2);
+    border:1px solid var(--border); border-radius:12px; margin-top:10px;
+    overflow:hidden;
+  }
+  .wire .line{
+    position:absolute; top:50%; left:12%; right:12%; height:2px;
+    background:repeating-linear-gradient(90deg, var(--border) 0 6px, transparent 6px 12px);
+    transform:translateY(-1px);
+  }
+  .wire.connected .line{
+    background:var(--cy, var(--yellow));
+    box-shadow:0 0 10px var(--cy, var(--yellow));
+  }
+  .node{
+    position:absolute; top:50%; transform:translate(-50%,-50%);
+    width:84px; height:56px; border-radius:10px;
+    background:#0f1526; border:1.5px solid var(--border);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    font-size:11px; font-weight:700; gap:2px; text-align:center; padding:4px;
+  }
+  .node .ic{ font-size:18px; }
+  .node.left{ left:9%; }
+  .node.right{ left:91%; }
+  .node.pulse{ animation:nodepulse .5s ease; }
+  @keyframes nodepulse{ 0%,100%{ filter:brightness(1);} 50%{ filter:brightness(1.6); transform:translate(-50%,-50%) scale(1.06);} }
+
+  .packet{
+    position:absolute; top:50%; transform:translate(-50%,-50%);
+    padding:4px 10px; border-radius:20px; font-size:10.5px; font-weight:700;
+    white-space:nowrap; z-index:5; color:#0b0f1a;
+  }
+  .packet.req{ background:var(--cyan); box-shadow:0 0 12px var(--cyan); }
+  .packet.res{ background:var(--green); box-shadow:0 0 12px var(--green); }
+  .packet.push{ background:var(--yellow); box-shadow:0 0 12px var(--yellow); }
+  .packet.hook{ background:var(--orange); box-shadow:0 0 12px var(--orange); }
+  .packet.gql{ background:var(--pink); box-shadow:0 0 12px var(--pink); color:#fff; }
+
+  .controls{ display:flex; gap:8px; margin-top:12px; flex-wrap:wrap; }
+  button{
+    font-family:inherit; font-size:12.5px; font-weight:700;
+    border:none; border-radius:8px; padding:9px 14px; cursor:pointer;
+    color:#0b0f1a; transition:transform .12s ease, filter .2s ease;
+  }
+  button:hover{ transform:translateY(-1px); filter:brightness(1.1); }
+  button:disabled{ opacity:.35; cursor:not-allowed; transform:none; }
+  .btn-cyan{ background:linear-gradient(90deg,var(--cyan),#5cf0ff); }
+  .btn-green{ background:linear-gradient(90deg,var(--green),#7bffbc); }
+  .btn-pink{ background:linear-gradient(90deg,var(--pink),var(--magenta)); color:#fff; }
+  .btn-yellow{ background:linear-gradient(90deg,var(--yellow),#ffd166); }
+  .btn-orange{ background:linear-gradient(90deg,var(--orange),#ffbe5c); }
+  .btn-grey{ background:linear-gradient(90deg,#6b7799,#8b95b3); color:#fff; }
+
+  .terminal{
+    background:#080b12; border:1px solid var(--border); border-radius:10px;
+    padding:10px 12px; height:190px; overflow-y:auto;
+    font-family:'Consolas','Courier New',monospace; font-size:11.8px; line-height:1.55; margin-top:10px;
+  }
+  .terminal div{ white-space:pre-wrap; word-break:break-word; margin-bottom:2px;}
+  .terminal .l1{ color:var(--muted); }
+  .terminal .cmd{ color:var(--cyan); } .terminal .path{color:var(--yellow);}
+  .terminal .ok{ color:var(--green); } .terminal .fail{ color:var(--red); }
+  .terminal .info{ color:#8fa8ff; } .terminal .gqlc{color:var(--pink);}
+
+  .explainer{
+    font-size:12.5px; color:var(--muted); line-height:1.6; margin-top:12px;
+    background:#0f1526; border:1px solid var(--border); border-radius:10px; padding:12px;
+  }
+  .explainer b{ color:var(--text); }
+  .explainer code{ color:var(--cyan); background:#0b1120; padding:1px 5px; border-radius:4px; font-size:11.5px;}
+
+  table.ref{ width:100%; border-collapse:collapse; font-size:12px; margin-top:10px; }
+  table.ref th, table.ref td{ border:1px solid var(--border); padding:6px 8px; text-align:left; }
+  table.ref th{ background:#0f1526; color:var(--muted); font-size:11px; text-transform:uppercase; }
+  table.ref td code{ color:var(--cyan); }
+
+  .code-toggle{ margin-top:10px; }
+  .code-toggle a{ color:var(--cyan); font-size:12px; cursor:pointer; text-decoration:underline; }
+  pre.code{
+    display:none; background:#080b12; border:1px solid var(--border); border-radius:10px;
+    padding:12px; font-size:11.2px; margin-top:8px; overflow-x:auto;
+    font-family:'Consolas','Courier New',monospace; color:#cfe6ff; line-height:1.5;
+  }
+  pre.code .kw{color:#ff79c6;} pre.code .tp{color:#8be9fd;} pre.code .cm{color:#6272a4;} pre.code .st{color:#f1fa8c;}
+
+  .badge{
+    display:inline-block; font-size:10.5px; font-weight:700; padding:2px 8px;
+    border-radius:20px; margin-left:8px; vertical-align:middle;
+  }
+  .badge.duplex{ background:#2a2405; color:var(--yellow); border:1px solid var(--yellow); }
+  .badge.stateless{ background:#0d2229; color:var(--cyan); border:1px solid var(--cyan);}
+  .badge.push{ background:#2a1a05; color:var(--orange); border:1px solid var(--orange);}
+
+  .compare-box{
+    display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px;
+  }
+  @media (max-width:700px){ .compare-box{ grid-template-columns:1fr; } }
+  .compare-col{ background:#0f1526; border:1px solid var(--border); border-radius:10px; padding:10px; }
+  .compare-col h4{ margin:0 0 8px; font-size:12px; text-transform:uppercase; letter-spacing:.5px; }
+
+  .summary{ max-width:1100px; margin:22px auto 0; }
+  .summary .panel{ display:block; }
+
+  .definition{
+    margin-top:12px; padding:12px 14px; border-radius:10px;
+    background:#0f1526; border:1px solid var(--border); border-left:3px solid var(--accent, var(--cyan));
+  }
+  .definition .label{
+    font-size:10.5px; font-weight:800; letter-spacing:1px; text-transform:uppercase;
+    color:var(--accent, var(--cyan)); margin-bottom:6px;
+  }
+  .definition p{ margin:0 0 8px; font-size:13px; line-height:1.55; color:var(--text); }
+  .definition .ex-label{ font-size:10.5px; font-weight:800; letter-spacing:.5px; text-transform:uppercase; color:var(--muted); margin:8px 0 4px; }
+  .ex-list{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:5px; }
+  .ex-list li{
+    font-size:12px; color:var(--muted); padding:6px 10px; border-radius:7px;
+    background:#0b1120; border:1px solid var(--border); display:flex; gap:8px; align-items:flex-start;
+  }
+  .ex-list li .ic{ flex-shrink:0; }
+  .ex-list li b{ color:var(--text); }
+
+  .toast{
+    position:fixed; top:20px; left:50%; transform:translateX(-50%);
+    background:#1c1030; border:1px solid var(--magenta); color:#fff;
+    padding:10px 18px; border-radius:10px; font-size:13px;
+    box-shadow:0 0 20px rgba(255,47,214,0.4); opacity:0;
+    transition:opacity .3s ease, top .3s ease; pointer-events:none; z-index:50;
+  }
+  .toast.show{ opacity:1; top:34px; }
+</style>
+</head>
+<body>
+
+<h1>🔌 HTTP · REST · GraphQL · WebSocket · Webhook</h1>
+<div class="subtitle">Click through the tabs — each one <b>animates the actual request flow</b> so you can see who talks first, who waits, and who pushes.</div>
+
+<div class="tabs">
+  <div class="tab active" data-tab="http">🌐 HTTP</div>
+  <div class="tab" data-tab="rest">📦 REST API</div>
+  <div class="tab" data-tab="graphql">◈ GraphQL</div>
+  <div class="tab" data-tab="ws">⚡ WebSocket</div>
+  <div class="tab" data-tab="webhook">📮 Webhook</div>
+  <div class="tab" data-tab="state">⚖ Stateful vs Stateless</div>
+</div>
+
+<div class="wrap">
+
+  <!-- ================= HTTP ================= -->
+  <div class="panel show" id="panel-http">
+    <div class="panel-head">
+      <h2 style="color:var(--cyan)">HTTP <span class="badge stateless">stateless</span></h2>
+      <div class="tagline">The base protocol everything below is built on</div>
+    </div>
+    <div class="definition" style="--accent:var(--cyan)">
+      <div class="label">Definition</div>
+      <p><b>HTTP</b> (HyperText Transfer Protocol) is the request/response protocol browsers and apps use to talk to servers over the internet. A client sends a request (method + URL + headers + optional body); the server sends back a status code and a response body. It's <b>stateless</b> — the server treats each request independently.</p>
+      <div class="ex-label">Everyday examples</div>
+      <ul class="ex-list">
+        <li><span class="ic">🌍</span> Typing a URL in your browser → an <code>HTTP GET</code> fetches the page</li>
+        <li><span class="ic">🖼️</span> A webpage loading images/CSS/JS → each file is its own separate HTTP request</li>
+        <li><span class="ic">📤</span> Submitting a login form → an <code>HTTP POST</code> with your credentials in the body</li>
+      </ul>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="wire" id="wire-http">
+          <div class="line"></div>
+          <div class="node left"><div class="ic">🧑‍💻</div>Client</div>
+          <div class="node right" id="http-server"><div class="ic">🖥️</div>Server</div>
+        </div>
+        <div class="controls">
+          <button class="btn-cyan" onclick="runHttp()">Send GET /hello</button>
+          <button class="btn-grey" onclick="clearLog('http')">Clear log</button>
+        </div>
+        <div class="terminal" id="log-http"></div>
+      </div>
+      <div>
+        <div class="explainer">
+          Every HTTP exchange is a <b>single request → single response</b>. The client always speaks first;
+          the server never contacts the client on its own. Once the response arrives, the logical exchange is
+          <b>done</b> — Redis, REST, GraphQL, and even the WebSocket handshake below all start life as one of these.
+        </div>
+        <div class="explainer">
+          <b>Stateless</b> means the server doesn't remember this request when the next one arrives — each
+          call carries everything needed to understand it (headers, cookies, auth tokens). That's what makes
+          plain HTTP a poor fit for "push me updates" — the server has no channel to reach back through.
+        </div>
+        <div class="code-toggle"><a onclick="toggleCode('code-http')">▸ view client call (Java)</a></div>
+        <pre class="code" id="code-http"><span class="tp">HttpClient</span> client = <span class="tp">HttpClient</span>.newHttpClient();
+<span class="tp">HttpRequest</span> req = <span class="tp">HttpRequest</span>.newBuilder()
+    .uri(<span class="tp">URI</span>.create(<span class="st">"https://api.example.com/hello"</span>))
+    .GET()
+    .build();
+<span class="tp">HttpResponse</span>&lt;<span class="tp">String</span>&gt; res = client.send(req, <span class="tp">HttpResponse</span>.BodyHandlers.ofString());
+<span class="cm">// res.statusCode() == 200, res.body() == {"message":"hi"}</span></pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= REST ================= -->
+  <div class="panel" id="panel-rest">
+    <div class="panel-head">
+      <h2 style="color:var(--green)">REST API</h2>
+      <div class="tagline">HTTP, organized around resources and verbs</div>
+    </div>
+    <div class="definition" style="--accent:var(--green)">
+      <div class="label">Definition</div>
+      <p><b>REST</b> (REpresentational State Transfer) is a design style for building HTTP APIs around <b>resources</b> (nouns, like a seat or a booking) instead of custom actions. Each resource gets its own URL, and the HTTP verb (<code>GET</code>/<code>POST</code>/<code>PATCH</code>/<code>DELETE</code>) says what to do to it. Responses have a fixed shape per endpoint.</p>
+      <div class="ex-label">Everyday examples</div>
+      <ul class="ex-list">
+        <li><span class="ic">🐦</span> Twitter/X API — <code>GET /tweets/{id}</code>, <code>POST /tweets</code></li>
+        <li><span class="ic">🎟️</span> BookMyShow-style backend — <code>GET /seats/A5</code>, <code>POST /bookings</code></li>
+        <li><span class="ic">🌦️</span> A weather API — <code>GET /weather?city=Bangalore</code> returns current conditions</li>
+      </ul>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="wire" id="wire-rest">
+          <div class="line"></div>
+          <div class="node left"><div class="ic">🧑‍💻</div>Client</div>
+          <div class="node right" id="rest-server"><div class="ic">🎬</div>/seats API</div>
+        </div>
+        <div class="controls">
+          <button class="btn-green" onclick="runRest('GET','/seats/A5','200',{id:'A5',status:'available',price:350})">GET /seats/A5</button>
+          <button class="btn-green" onclick="runRest('POST','/bookings','201',{id:9931,seat:'A5',status:'confirmed'})">POST /bookings</button>
+          <button class="btn-green" onclick="runRest('PATCH','/seats/A5','200',{id:'A5',status:'held'})">PATCH /seats/A5</button>
+          <button class="btn-grey" onclick="clearLog('rest')">Clear log</button>
+        </div>
+        <div class="terminal" id="log-rest"></div>
+      </div>
+      <div>
+        <table class="ref">
+          <tr><th>Verb</th><th>Path</th><th>Meaning</th></tr>
+          <tr><td><code>GET</code></td><td>/seats/A5</td><td>read one seat</td></tr>
+          <tr><td><code>POST</code></td><td>/bookings</td><td>create a booking</td></tr>
+          <tr><td><code>PATCH</code></td><td>/seats/A5</td><td>partially update a seat</td></tr>
+          <tr><td><code>DELETE</code></td><td>/bookings/9931</td><td>cancel a booking</td></tr>
+        </table>
+        <div class="explainer">
+          REST maps operations onto <b>resources</b> (nouns: seats, bookings) and <b>HTTP verbs</b> (the action).
+          Each endpoint returns a <b>fixed shape</b> — <code>GET /seats/A5</code> always returns the whole seat object,
+          even if your screen only needed the <code>status</code> field. Need seat + movie + theater info together?
+          That's 3 separate round trips. That over/under-fetching gap is exactly what GraphQL (next tab) fixes.
+        </div>
+        <div class="code-toggle"><a onclick="toggleCode('code-rest')">▸ view REST client (Java / Spring)</a></div>
+        <pre class="code" id="code-rest"><span class="kw">@GetMapping</span>(<span class="st">"/seats/{id}"</span>)
+<span class="tp">Seat</span> getSeat(<span class="kw">@PathVariable</span> <span class="tp">String</span> id) {
+    <span class="kw">return</span> seatRepository.findById(id);
+}
+
+<span class="kw">@PostMapping</span>(<span class="st">"/bookings"</span>)
+<span class="tp">ResponseEntity</span>&lt;<span class="tp">Booking</span>&gt; createBooking(<span class="kw">@RequestBody</span> <span class="tp">BookingRequest</span> req) {
+    <span class="tp">Booking</span> b = bookingService.create(req);
+    <span class="kw">return</span> <span class="tp">ResponseEntity</span>.status(201).body(b);
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= GRAPHQL ================= -->
+  <div class="panel" id="panel-graphql">
+    <div class="panel-head">
+      <h2 style="color:var(--pink)">GraphQL</h2>
+      <div class="tagline">One endpoint, client chooses the exact shape</div>
+    </div>
+    <div class="definition" style="--accent:var(--pink)">
+      <div class="label">Definition</div>
+      <p><b>GraphQL</b> is a query language for APIs where the client sends a <b>single query describing exactly which fields it wants</b> — including nested/related data — to one endpoint (usually <code>/graphql</code>). The server resolves the whole graph of data in one round trip and returns a response shaped exactly like the query. No over-fetching, no under-fetching.</p>
+      <div class="ex-label">Everyday examples</div>
+      <ul class="ex-list">
+        <li><span class="ic">📘</span> Facebook's API (GraphQL was created there) — fetch a post + its comments + author in one call</li>
+        <li><span class="ic">🐙</span> GitHub's public GraphQL API — get a repo, its issues, and contributors together</li>
+        <li><span class="ic">🛍️</span> Shopify's Storefront API — product + variants + pricing in a single query for a product page</li>
+      </ul>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="wire" id="wire-gql">
+          <div class="line"></div>
+          <div class="node left"><div class="ic">🧑‍💻</div>Client</div>
+          <div class="node right" id="gql-server"><div class="ic">◈</div>/graphql</div>
+        </div>
+        <div class="controls">
+          <button class="btn-pink" onclick="runGql()">Run Query</button>
+          <button class="btn-grey" onclick="clearLog('gql')">Clear log</button>
+        </div>
+        <div class="terminal" id="log-gql"></div>
+      </div>
+      <div>
+        <div class="explainer" style="margin-top:0;">
+          <b>Query sent by the client:</b>
+          <pre style="margin:6px 0 0; font-size:11px; color:var(--pink); background:#0b1120; padding:8px; border-radius:6px;">query {
+  seat(id: "A5") {
+    status
+    movie { title }
+    theater { name }
+  }
+}</pre>
+        </div>
+        <div class="explainer">
+          One call to a <b>single endpoint</b> (<code>/graphql</code>) returns exactly the nested fields asked for —
+          seat, movie title, and theater name together — the equivalent REST version needs 3 round trips
+          (<code>/seats/A5</code>, <code>/movies/{id}</code>, <code>/theaters/{id}</code>). Fewer requests, no
+          unused fields, but the server does more work per-request resolving that nested graph.
+        </div>
+        <button class="btn-grey" style="margin-top:4px;" onclick="runRestCompare()">⚖ Compare: same data via REST (3 calls)</button>
+        <div class="code-toggle"><a onclick="toggleCode('code-gql')">▸ view GraphQL client (Java)</a></div>
+        <pre class="code" id="code-gql"><span class="tp">String</span> query = <span class="st">"""
+    query {
+      seat(id: "A5") { status movie { title } theater { name } }
+    }
+"""</span>;
+<span class="tp">HttpRequest</span> req = <span class="tp">HttpRequest</span>.newBuilder()
+    .uri(<span class="tp">URI</span>.create(<span class="st">"https://api.example.com/graphql"</span>))
+    .header(<span class="st">"Content-Type"</span>, <span class="st">"application/json"</span>)
+    .POST(<span class="tp">HttpRequest</span>.BodyPublishers.ofString(
+        <span class="st">"{\"query\":\""</span> + query.replace(<span class="st">"\n"</span>,<span class="st">""</span>) + <span class="st">"\"}"</span>))
+    .build();</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= WEBSOCKET ================= -->
+  <div class="panel" id="panel-ws">
+    <div class="panel-head">
+      <h2 style="color:var(--yellow)">WebSocket <span class="badge duplex">full-duplex</span></h2>
+      <div class="tagline">One handshake, then both sides push freely</div>
+    </div>
+    <div class="definition" style="--accent:var(--yellow)">
+      <div class="label">Definition</div>
+      <p><b>WebSocket</b> is a protocol that upgrades a single HTTP connection into a <b>persistent, full-duplex</b> channel — after the initial handshake, either the client or the server can send messages at any time without opening a new connection or waiting to be asked. It's the standard way to push real-time updates to a browser.</p>
+      <div class="ex-label">Everyday examples</div>
+      <ul class="ex-list">
+        <li><span class="ic">💬</span> WhatsApp Web / Slack — new messages appear instantly without refreshing</li>
+        <li><span class="ic">📈</span> Live stock/crypto price tickers updating every second</li>
+        <li><span class="ic">🎟️</span> A live movie seat map — seats turning grey the moment someone else holds them</li>
+      </ul>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="wire" id="wire-ws" style="--cy:var(--yellow)">
+          <div class="line"></div>
+          <div class="node left"><div class="ic">🧑‍💻</div>Client</div>
+          <div class="node right" id="ws-server"><div class="ic">🖥️</div>Server</div>
+        </div>
+        <div class="controls">
+          <button class="btn-yellow" onclick="runWsHandshake()" id="wsHandshakeBtn">1. Open connection (handshake)</button>
+          <button class="btn-cyan" onclick="wsClientSend()" id="wsSendBtn" disabled>Client → send message</button>
+          <button class="btn-orange" onclick="wsServerPush()" id="wsPushBtn" disabled>Server → push update</button>
+          <button class="btn-grey" onclick="clearLog('ws')">Clear log</button>
+        </div>
+        <div class="terminal" id="log-ws"></div>
+      </div>
+      <div>
+        <div class="explainer">
+          The connection starts as a normal HTTP request with <code>Upgrade: websocket</code>. If the server
+          agrees (<code>101 Switching Protocols</code>), that same TCP connection stays open and both sides can
+          send messages <b>whenever they want</b> — no new request needed, no polling. This is how live seat maps,
+          chat, and stock tickers push instantly.
+        </div>
+        <div class="explainer">
+          <b>Trade-off:</b> the server now has to hold that connection open per client (memory/resources), and if
+          the connection drops, both sides have to notice and reconnect — unlike stateless HTTP where a dropped
+          request just... didn't happen.
+        </div>
+        <div class="code-toggle"><a onclick="toggleCode('code-ws')">▸ view WebSocket handler (Java / Spring)</a></div>
+        <pre class="code" id="code-ws"><span class="kw">@Component</span>
+<span class="kw">class</span> <span class="tp">SeatMapSocketHandler</span> <span class="kw">extends</span> <span class="tp">TextWebSocketHandler</span> {
+
+    <span class="kw">@Override</span>
+    <span class="tp">void</span> handleTextMessage(<span class="tp">WebSocketSession</span> session, <span class="tp">TextMessage</span> msg) {
+        <span class="cm">// client -> server message arrives here anytime, no new request</span>
+    }
+
+    <span class="tp">void</span> pushSeatUpdate(<span class="tp">WebSocketSession</span> session, <span class="tp">String</span> seatId, <span class="tp">String</span> status) {
+        session.sendMessage(<span class="kw">new</span> <span class="tp">TextMessage</span>(
+            <span class="st">"{\"seat\":\""</span>+seatId+<span class="st">"\",\"status\":\""</span>+status+<span class="st">"\"}"</span>));
+        <span class="cm">// server pushed unprompted — client never asked for this specific message</span>
+    }
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= WEBHOOK ================= -->
+  <div class="panel" id="panel-webhook">
+    <div class="panel-head">
+      <h2 style="color:var(--orange)">Webhook <span class="badge push">server → server push</span></h2>
+      <div class="tagline">A regular HTTP POST, but THEY call YOU</div>
+    </div>
+    <div class="definition" style="--accent:var(--orange)">
+      <div class="label">Definition</div>
+      <p>A <b>webhook</b> is just an HTTP <code>POST</code> request — but the calling direction is flipped. You register a URL with another service ahead of time; when <b>their</b> event happens, <b>they</b> call <b>you</b>, instead of you repeatedly polling them to ask "anything new?" It's "don't call us, we'll call you" as an API pattern.</p>
+      <div class="ex-label">Everyday examples</div>
+      <ul class="ex-list">
+        <li><span class="ic">💳</span> Stripe/Razorpay calling your server the moment a payment succeeds or fails</li>
+        <li><span class="ic">🐙</span> GitHub calling your CI server when someone pushes code or opens a PR</li>
+        <li><span class="ic">📬</span> A shipping provider (like Delhivery/FedEx) notifying your backend when a package status changes</li>
+      </ul>
+    </div>
+    <div class="grid2">
+      <div>
+        <div class="wire" id="wire-hook">
+          <div class="line"></div>
+          <div class="node left" id="hook-provider"><div class="ic">💳</div>Payment Provider</div>
+          <div class="node right" id="hook-server"><div class="ic">🖥️</div>Your Server</div>
+        </div>
+        <div class="controls">
+          <button class="btn-orange" onclick="runWebhookSetup()" id="hookSetupBtn">1. Register callback URL</button>
+          <button class="btn-orange" onclick="runWebhookFire()" id="hookFireBtn" disabled>2. Trigger: payment succeeds</button>
+          <button class="btn-grey" onclick="clearLog('hook')">Clear log</button>
+        </div>
+        <div class="terminal" id="log-hook"></div>
+      </div>
+      <div>
+        <div class="explainer">
+          You give the provider a URL upfront: <code>https://yourapp.com/webhooks/payment</code>. Later, when
+          <em>their</em> event happens, <b>they</b> open the HTTP connection and <code>POST</code> the event to <b>you</b> —
+          the direction is flipped compared to every tab before this one. Your server's only job is to respond
+          fast with <code>200 OK</code> to acknowledge receipt.
+        </div>
+        <div class="explainer">
+          The alternative is <b>polling</b>: your server calling <code>GET /payments/{id}/status</code> every few
+          seconds asking "done yet?" — wasteful and slower to notice. A webhook flips that into a single push
+          exactly when it matters. It's still plain HTTP underneath — the pattern is just who initiates.
+        </div>
+        <div class="code-toggle"><a onclick="toggleCode('code-hook')">▸ view webhook receiver (Java / Spring)</a></div>
+        <pre class="code" id="code-hook"><span class="kw">@PostMapping</span>(<span class="st">"/webhooks/payment"</span>)
+<span class="tp">ResponseEntity</span>&lt;<span class="tp">Void</span>&gt; onPaymentEvent(
+        <span class="kw">@RequestBody</span> <span class="tp">String</span> payload,
+        <span class="kw">@RequestHeader</span>(<span class="st">"X-Signature"</span>) <span class="tp">String</span> signature) {
+
+    <span class="kw">if</span> (!verifySignature(payload, signature)) {
+        <span class="kw">return</span> <span class="tp">ResponseEntity</span>.status(401).build(); <span class="cm">// reject forged calls</span>
+    }
+    eventQueue.enqueue(payload);      <span class="cm">// process async, respond fast</span>
+    <span class="kw">return</span> <span class="tp">ResponseEntity</span>.ok().build();   <span class="cm">// 200 = "got it, thanks"</span>
+}</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= STATEFUL VS STATELESS ================= -->
+  <div class="panel" id="panel-state">
+    <div class="panel-head">
+      <h2 style="color:#cfd6ea">Stateful vs Stateless</h2>
+      <div class="tagline">Does the server remember you between requests?</div>
+    </div>
+    <div class="definition" style="--accent:#8b95b3">
+      <div class="label">Definition</div>
+      <p><b>Stateless</b> means the server keeps <b>no memory</b> of previous requests — every request must carry everything needed to understand it (auth token, params, etc). Any server instance can handle any request, which makes stateless systems trivial to scale horizontally.</p>
+      <p><b>Stateful</b> means the server <b>remembers</b> context from earlier requests (usually in a session), so later requests can be lighter — but that memory has to live somewhere, and it ties the client to whichever server (or shared store) holds it.</p>
+      <div class="ex-label">Everyday examples</div>
+      <ul class="ex-list">
+        <li><span class="ic">🌐</span> <b>Stateless:</b> a plain REST API using JWT tokens — each request re-sends the token, no server-side memory needed</li>
+        <li><span class="ic">🛒</span> <b>Stateful:</b> a classic e-commerce session — server remembers your cart via a session ID after login</li>
+        <li><span class="ic">🎮</span> <b>Stateful:</b> a multiplayer game server holding live player position in memory between moves</li>
+        <li><span class="ic">🔑</span> <b>Stateless-ish:</b> Redis-backed sessions — server code stays stateless, but session data is remembered in a shared store (Redis) instead of one server's RAM</li>
+      </ul>
+    </div>
+
+    <div class="compare-box" style="margin-top:16px;">
+      <div class="compare-col">
+        <h4 style="color:var(--cyan)">Stateless flow</h4>
+        <div class="wire" id="wire-stateless">
+          <div class="line"></div>
+          <div class="node left"><div class="ic">🧑‍💻</div>Client</div>
+          <div class="node right" id="stateless-server"><div class="ic">🖥️</div>Server</div>
+        </div>
+        <div class="controls">
+          <button class="btn-cyan" onclick="runStatelessFlow()" id="statelessBtn">▶ Run 3-request flow</button>
+          <button class="btn-grey" onclick="clearLog('stateless')">Clear log</button>
+        </div>
+        <div class="terminal" id="log-stateless" style="height:170px;"></div>
+      </div>
+      <div class="compare-col">
+        <h4 style="color:var(--magenta)">Stateful flow (session)</h4>
+        <div class="wire" id="wire-stateful">
+          <div class="line"></div>
+          <div class="node left"><div class="ic">🧑‍💻</div>Client</div>
+          <div class="node right" id="stateful-server"><div class="ic">🖥️</div>Server</div>
+        </div>
+        <div class="controls">
+          <button class="btn-pink" onclick="runStatefulFlow()" id="statefulBtn">▶ Run 3-request flow</button>
+          <button class="btn-grey" onclick="clearLog('stateful')">Clear log</button>
+        </div>
+        <div class="terminal" id="log-stateful" style="height:170px;"></div>
+      </div>
+    </div>
+
+    <div class="explainer">
+      Watch the <b>size of what the client has to send</b>: in the stateless flow, the full auth token is
+      re-sent on <em>every single request</em> because the server forgets everything the moment it responds.
+      In the stateful flow, the credentials are sent <b>once</b> at login — after that, a small session ID
+      cookie is enough because the server (or a shared store like Redis) is holding the context in between.
+    </div>
+    <div class="explainer">
+      <b>Trade-off:</b> stateless is easier to scale — spin up 100 identical servers, any of them can handle
+      any request. Stateful needs "sticky sessions" (always routing a client back to the same server) or a
+      shared session store so every server instance can see the same state — which is exactly the kind of
+      problem the Redis <code>ZSET</code>/lock pattern from earlier is used to solve.
+    </div>
+  </div>
+
+</div>
+
+<!-- ================= SUMMARY ================= -->
+<div class="summary">
+  <div class="panel show" style="border-color:var(--border);">
+    <h2 style="margin-top:0; font-size:16px; color:var(--text);">Quick Comparison</h2>
+    <table class="ref">
+      <tr><th>Pattern</th><th>Who initiates</th><th>Connection</th><th>Best for</th></tr>
+      <tr><td style="color:var(--cyan)">HTTP</td><td>Client, always</td><td>One-shot per request</td><td>The base transport for everything else</td></tr>
+      <tr><td style="color:var(--green)">REST API</td><td>Client</td><td>One-shot per request</td><td>Simple, cacheable, resource-shaped CRUD</td></tr>
+      <tr><td style="color:var(--pink)">GraphQL</td><td>Client</td><td>One-shot per request</td><td>Complex/nested data, avoiding over-fetching</td></tr>
+      <tr><td style="color:var(--yellow)">WebSocket</td><td>Either side, after handshake</td><td>Persistent, full-duplex</td><td>Live updates, chat, real-time seat maps</td></tr>
+      <tr><td style="color:var(--orange)">Webhook</td><td>The other server (not you)</td><td>One-shot HTTP POST to you</td><td>"Notify me when X happens" instead of polling</td></tr>
+      <tr><td style="color:#cfd6ea">Stateful vs Stateless</td><td>—</td><td>Stateless: none kept · Stateful: session held server-side</td><td>Stateless scales easily; stateful needs sticky sessions or shared store</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- tab switching ---------- */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick = ()=>{
+    document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(x=>x.classList.remove('show'));
+    t.classList.add('active');
+    document.getElementById('panel-'+t.dataset.tab).classList.add('show');
+  };
+});
+
+function toggleCode(id){
+  const el = document.getElementById(id);
+  const open = el.style.display === 'block';
+  el.style.display = open ? 'none' : 'block';
+  el.previousElementSibling.textContent = (open?'▸':'▾') + el.previousElementSibling.textContent.slice(1);
+}
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>t.classList.remove('show'), 2000);
+}
+
+function log(id, html){
+  const el = document.getElementById('log-'+id);
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  el.appendChild(d);
+  el.scrollTop = el.scrollHeight;
+}
+function clearLog(id){ document.getElementById('log-'+id).innerHTML=''; }
+
+function pulseNode(id){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.classList.remove('pulse'); void el.offsetWidth; el.classList.add('pulse');
+}
+
+/* generic packet travel along a .wire; dir 'right' = left-node -> right-node */
+function travel(wireId, dir, label, cls, duration=850){
+  return new Promise(resolve=>{
+    const wire = document.getElementById(wireId);
+    const packet = document.createElement('div');
+    packet.className = 'packet ' + cls;
+    packet.textContent = label;
+    const startPct = dir==='right' ? 10 : 90;
+    const endPct   = dir==='right' ? 90 : 10;
+    packet.style.left = startPct+'%';
+    wire.appendChild(packet);
+    requestAnimationFrame(()=>{
+      packet.style.transition = `left ${duration}ms cubic-bezier(.4,0,.2,1)`;
+      packet.style.left = endPct+'%';
+    });
+    setTimeout(()=>{ packet.remove(); resolve(); }, duration+40);
+  });
+}
+function wait(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+/* ================= HTTP ================= */
+async function runHttp(){
+  log('http', `<span class="l1">></span> <span class="cmd">GET</span> <span class="path">/hello</span> <span class="l1">HTTP/1.1</span>`);
+  await travel('wire-http','right','GET /hello','req');
+  pulseNode('http-server');
+  await wait(200);
+  log('http', `<span class="ok">&lt; HTTP/1.1 200 OK</span>`);
+  log('http', `<span class="info">&lt; {"message": "hi"}</span>`);
+  await travel('wire-http','left','200 OK','res');
+  log('http', `<span class="l1">-- connection closed, no state kept --</span>`);
+}
+
+/* ================= REST ================= */
+async function runRest(verb, path, status, body){
+  log('rest', `<span class="l1">></span> <span class="cmd">${verb}</span> <span class="path">${path}</span>`);
+  await travel('wire-rest','right',`${verb} ${path}`,'req');
+  pulseNode('rest-server');
+  await wait(220);
+  const ok = status.startsWith('2');
+  log('rest', `<span class="${ok?'ok':'fail'}">&lt; ${status}</span>`);
+  log('rest', `<span class="info">&lt; ${JSON.stringify(body)}</span>`);
+  await travel('wire-rest','left',status,'res');
+}
+
+/* ================= GRAPHQL ================= */
+async function runGql(){
+  log('gql', `<span class="l1">></span> <span class="cmd">POST</span> <span class="path">/graphql</span>`);
+  log('gql', `<span class="gqlc">  query { seat(id:"A5"){ status movie{title} theater{name} } }</span>`);
+  await travel('wire-gql','right','query { seat {...} }','gql');
+  pulseNode('gql-server');
+  await wait(260);
+  const resp = {data:{seat:{status:'available', movie:{title:'Dune: Part Three'}, theater:{name:'PVR Orion'}}}};
+  log('gql', `<span class="ok">&lt; 200 OK</span>`);
+  log('gql', `<span class="info">&lt; ${JSON.stringify(resp)}</span>`);
+  await travel('wire-gql','left','exact shape back','res');
+  log('gql', `<span class="l1">-- 1 request, only requested fields returned --</span>`);
+}
+async function runRestCompare(){
+  toast('Simulating equivalent REST calls…');
+  log('gql', `<span class="l1">-- REST equivalent would need 3 calls --</span>`);
+  await runRest3Step('/seats/A5', {status:'available'});
+  await runRest3Step('/movies/551', {title:'Dune: Part Three'});
+  await runRest3Step('/theaters/12', {name:'PVR Orion'});
+  log('gql', `<span class="fail">-- 3 round trips vs GraphQL's 1 --</span>`);
+}
+async function runRest3Step(path, body){
+  log('gql', `<span class="l1">></span> <span class="cmd">GET</span> <span class="path">${path}</span>`);
+  await travel('wire-gql','right',`GET ${path}`,'req',600);
+  await wait(120);
+  log('gql', `<span class="ok">&lt; 200</span> <span class="info">${JSON.stringify(body)}</span>`);
+  await travel('wire-gql','left','200','res',600);
+}
+
+/* ================= WEBSOCKET ================= */
+async function runWsHandshake(){
+  document.getElementById('wsHandshakeBtn').disabled = true;
+  log('ws', `<span class="l1">></span> <span class="cmd">GET</span> <span class="path">/ws</span> <span class="l1">HTTP/1.1</span>`);
+  log('ws', `<span class="l1">  Upgrade: websocket</span>`);
+  await travel('wire-ws','right','Upgrade: websocket','req');
+  pulseNode('ws-server');
+  await wait(200);
+  log('ws', `<span class="ok">&lt; 101 Switching Protocols</span>`);
+  await travel('wire-ws','left','101 Switching','res');
+  document.getElementById('wire-ws').classList.add('connected');
+  log('ws', `<span class="info">-- connection now persistent, both sides may send anytime --</span>`);
+  document.getElementById('wsSendBtn').disabled = false;
+  document.getElementById('wsPushBtn').disabled = false;
+}
+async function wsClientSend(){
+  log('ws', `<span class="l1">></span> <span class="cmd">WS SEND</span> {"type":"chat","msg":"hi"}`);
+  await travel('wire-ws','right','client msg','push',550);
+  pulseNode('ws-server');
+}
+async function wsServerPush(){
+  log('ws', `<span class="l1">&lt;</span> <span class="cmd">WS PUSH</span> {"seat":"A5","status":"held"} <span class="l1">// unprompted</span>`);
+  await travel('wire-ws','left','seat update','push',550);
+  pulseNode('ws-server');
+  toast('Server pushed without the client asking!');
+}
+
+/* ================= WEBHOOK ================= */
+async function runWebhookSetup(){
+  document.getElementById('hookSetupBtn').disabled = true;
+  log('hook', `<span class="l1">></span> <span class="cmd">POST</span> <span class="path">/providers/stripe/webhooks</span>`);
+  log('hook', `<span class="l1">  {"url":"https://yourapp.com/webhooks/payment"}</span>`);
+  await travel('wire-hook','right','register URL','req');
+  pulseNode('hook-provider');
+  await wait(200);
+  log('hook', `<span class="ok">&lt; 200 OK -- callback registered</span>`);
+  await travel('wire-hook','left','200 OK','res');
+  document.getElementById('hookFireBtn').disabled = false;
+}
+async function runWebhookFire(){
+  log('hook', `<span class="l1">-- later, on the provider's side --</span>`);
+  log('hook', `<span class="info">💳 payment_intent.succeeded</span>`);
+  await wait(300);
+  log('hook', `<span class="l1">></span> <span class="cmd">POST</span> <span class="path">https://yourapp.com/webhooks/payment</span> <span class="l1">// THEY call YOU</span>`);
+  await travel('wire-hook','right','payment.succeeded','hook');
+  pulseNode('hook-server');
+  await wait(220);
+  log('hook', `<span class="ok">&lt; 200 OK</span> <span class="l1">-- you just acknowledge receipt</span>`);
+  await travel('wire-hook','left','200 OK','res');
+  toast('Notice: the Provider opened this connection, not you!');
+}
+
+/* ================= STATELESS vs STATEFUL ================= */
+async function runStatelessFlow(){
+  const btn = document.getElementById('statelessBtn'); btn.disabled = true;
+  const steps = [
+    {path:'/login', body:'{"user":"pradeep","pass":"••••"}', resp:'{"token":"eyJhbGciOi..."}'},
+    {path:'/cart', body:'Authorization: Bearer eyJhbGciOi...', resp:'{"items":[...]}'},
+    {path:'/checkout', body:'Authorization: Bearer eyJhbGciOi...', resp:'{"order":"confirmed"}'}
+  ];
+  for(const s of steps){
+    log('stateless', `<span class="l1">></span> <span class="cmd">POST</span> <span class="path">${s.path}</span>`);
+    log('stateless', `<span class="info">  ${s.body}</span> <span class="l1">// full context, every time</span>`);
+    await travel('wire-stateless','right', s.path, 'req', 650);
+    pulseNode('stateless-server');
+    await wait(150);
+    log('stateless', `<span class="ok">&lt; 200</span> <span class="info">${s.resp}</span>`);
+    await travel('wire-stateless','left', '200', 'res', 650);
+    log('stateless', `<span class="fail">🧠✕ server forgets this client immediately</span>`);
+    await wait(200);
+  }
+  log('stateless', `<span class="l1">-- 3 requests, full auth resent all 3 times --</span>`);
+  btn.disabled = false;
+}
+
+async function runStatefulFlow(){
+  const btn = document.getElementById('statefulBtn'); btn.disabled = true;
+  log('stateful', `<span class="l1">></span> <span class="cmd">POST</span> <span class="path">/login</span>`);
+  log('stateful', `<span class="info">  {"user":"pradeep","pass":"••••"}</span> <span class="l1">// sent once</span>`);
+  await travel('wire-stateful','right','/login','req',650);
+  pulseNode('stateful-server');
+  await wait(150);
+  log('stateful', `<span class="ok">&lt; 200</span> <span class="info">Set-Cookie: sessionId=abc123</span>`);
+  await travel('wire-stateful','left','200 + cookie','res',650);
+  log('stateful', `<span class="gqlc">🧠 server stores session abc123 in memory</span>`);
+  document.getElementById('stateful-server').style.boxShadow = '0 0 16px var(--magenta)';
+  await wait(250);
+
+  const steps = [
+    {path:'/cart'},
+    {path:'/checkout'}
+  ];
+  for(const s of steps){
+    log('stateful', `<span class="l1">></span> <span class="cmd">GET</span> <span class="path">${s.path}</span>`);
+    log('stateful', `<span class="info">  Cookie: sessionId=abc123</span> <span class="l1">// small, no re-auth</span>`);
+    await travel('wire-stateful','right', s.path, 'req', 650);
+    pulseNode('stateful-server');
+    await wait(150);
+    log('stateful', `<span class="ok">&lt; 200</span> <span class="info">-- server already knows who you are</span>`);
+    await travel('wire-stateful','left', '200', 'res', 650);
+    log('stateful', `<span class="gqlc">🧠 session abc123 still remembered</span>`);
+    await wait(200);
+  }
+  log('stateful', `<span class="l1">-- credentials sent once, session carried the rest --</span>`);
+  document.getElementById('stateful-server').style.boxShadow = '';
+  btn.disabled = false;
+}
+</script>
+</body>
+</html>
