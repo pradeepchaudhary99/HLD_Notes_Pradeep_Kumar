@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 3-4 — Booking System Deep Dive — Class Notes</title>
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <a href="../../index.html" class="sidebar-brand">📘 Class Notes</a>
+    <div class="sidebar-tagline">System Design & Backend Engineering</div>
+    <nav>
+      <div class="week-block">
+        <div class="week-title">Course</div>
+        <ul>
+          <li><a href="../../index.html">Home</a></li>
+          <li><a href="../index.html">System Design — All Weeks</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 1 — HLD Foundations</div>
+        <ul>
+          <li><a href="../week-1/01-hld-approach.html">Approaching an HLD Interview</a></li>
+          <li><a href="../week-1/02-cap-theorem.html">CAP Theorem & Consistency</a></li>
+          <li><a href="../week-1/03-sql-vs-nosql.html">SQL vs NoSQL</a></li>
+          <li><a href="../week-1/04-estimation.html">Back-of-Envelope Estimation</a></li>
+          <li><a href="../week-1/05-api-data-model.html">API Design & Data Model</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 2 — Core Infra Building Blocks</div>
+        <ul>
+          <li><a href="../week-2/01-networking-load-balancers.html">Load Balancers & Networking</a></li>
+          <li><a href="../week-2/02-cdn-dns-reverse-proxy.html">CDN, DNS & Reverse Proxies</a></li>
+          <li><a href="../week-2/03-caching-strategies.html">Caching Strategies</a></li>
+          <li><a href="../week-2/04-redis-deep-dive.html">Redis Deep Dive</a></li>
+          <li><a href="../week-2/05-partitioning-sharding.html">Partitioning & Sharding</a></li>
+          <li><a href="../week-2/06-leader-follower-election.html">Leader-Follower & Election</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 3-4 — Booking System Deep Dive</div>
+        <ul>
+          <li><a href="index.html" class="active">Overview &amp; Reference Index</a></li>
+          <li><a href="HLD%20%E2%80%94%20Movie%20_%20Event%20Ticketing%20Platform.html">Ticketing Platform HLD (raw)</a></li>
+          <li><a href="redis_seat_booking_demo.html">Redis Seat Booking Demo</a></li>
+          <li><a href="REDIS_ELASTIC_SEARCH.html">Redis + Elasticsearch Reference</a></li>
+          <li><a href="api_patterns_demo_1.html">HTTP/REST/GraphQL/WS/Webhook Demo</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Practice Questions</div>
+        <ul>
+          <li><a href="../questions/index.html">All Questions</a></li>
+          <li><a href="../questions/url-shortener.html">URL Shortener</a></li>
+          <li><a href="../questions/movie-ticketing-platform.html">Movie / Event Ticketing</a></li>
+          <li><a href="../questions/notification-system.html">Notification System</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="sidebar-footer">Updated as classes progress.</div>
+  </aside>
+
+  <main class="content">
+    <div class="content-inner">
+      <div class="breadcrumb"><a href="../../index.html">Home</a> / <a href="../index.html">System Design</a> / Week 3-4</div>
+      <div class="home-hero">
+        <h1>Week 3-4 — Booking System Deep Dive</h1>
+        <p>The class session that built a Ticketmaster/BookMyShow-style seat-booking system end to end — Redis locking patterns, the HTTP/REST/GraphQL/WebSocket/Webhook protocols it's built from, and a full Elasticsearch command reference. These are the raw, in-session working files; the polished, interview-ready write-up lives in <a href="../questions/movie-ticketing-platform.html">Practice Questions</a>.</p>
+      </div>
+
+      <ul class="topic-list">
+        <li><a href="HLD%20%E2%80%94%20Movie%20_%20Event%20Ticketing%20Platform.html"><span><span class="topic-title">Ticketing Platform HLD (raw session file)</span><span class="topic-desc">The original working document — full HLD plus the optimistic/pessimistic locking deep dive and edge-case Q&amp;As, in this file's original form</span></span><span class="arrow">→</span></a></li>
+        <li><a href="redis_seat_booking_demo.html"><span><span class="topic-title">Redis Seat Booking — Live Demo</span><span class="topic-desc">Interactive seat map backed by a simulated Redis ZSET — click a seat, watch the hold, TTL countdown, and race-condition simulation play out</span></span><span class="arrow">→</span></a></li>
+        <li><a href="REDIS_ELASTIC_SEARCH.html"><span><span class="topic-title">Redis &amp; Elasticsearch Command Reference</span><span class="topic-desc">Copy-paste redis-cli and curl commands — Pub/Sub, TTL locking, virtual queues, ES query cookbook, Docker setup</span></span><span class="arrow">→</span></a></li>
+        <li><a href="api_patterns_demo_1.html"><span><span class="topic-title">HTTP · REST · GraphQL · WebSocket · Webhook — Animated Demo</span><span class="topic-desc">Click-through, animated request-flow visualizer comparing the five protocols/patterns the booking system's API layer is built from</span></span><span class="arrow">→</span></a></li>
+      </ul>
+
+      <div class="callout" style="margin-top:24px;">
+        <div class="callout-title">Also in this session</div>
+        <code>2.Booking System.excalidraw</code> — the whiteboard diagram source file from class (open with the <a href="https://excalidraw.com" target="_blank" rel="noopener">Excalidraw</a> app or its VS Code extension; it won't render directly in a browser tab).
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

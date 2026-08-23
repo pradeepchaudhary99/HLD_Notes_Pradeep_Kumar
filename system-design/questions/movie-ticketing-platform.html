@@ -607,6 +607,125 @@ UPDATE seat_inventory
 
       <h3>8.4 — Search / Catalog</h3>
       <p>Elasticsearch indexed off a CDC stream from the Postgres catalog (Debezium-style), so writes to shows/pricing/venues never touch the read-serving path directly. Geo + facet queries (city, date, genre, language) live entirely here; strong consistency isn't needed — a newly published show appearing 2 seconds later in search is invisible to users.</p>
+
+      <h3>8.5 — Optimistic vs. Pessimistic Locking, in Full</h3>
+      <p>Every "how do you prevent double-booking" answer eventually has to pick a locking strategy for the actual row update. The two options aren't interchangeable — they trade off differently under contention, and a real system typically uses <strong>both</strong>, in different parts of the flow.</p>
+
+      <div class="vs-wrap">
+        <div class="vs-card strong">
+          <div class="vs-tag">Optimistic locking</div>
+          <p class="dim" style="margin-bottom:0;">Don't lock anything up front. Read the row, do your work in memory, then write back a conditional update that only succeeds if <strong>nothing changed underneath you</strong> (checked via a version number, or the row's current state). If the condition fails, someone else won — retry or fail fast. No lock is ever held across application logic or network calls.</p>
+        </div>
+        <div class="vs-card weak">
+          <div class="vs-tag">Pessimistic locking</div>
+          <p class="dim" style="margin-bottom:0;">Acquire a real row-level lock <em>before</em> reading, inside a transaction (<code>SELECT ... FOR UPDATE</code>). Every other transaction wanting that row blocks until you commit or roll back. Simple to reason about, but the lock is held for the full duration of your transaction — including any slow application logic in between.</p>
+        </div>
+      </div>
+
+      <h4 style="font-family:var(--sans); text-transform:none; letter-spacing:normal; color:var(--text); font-size:14.5px; margin:20px 0 6px;">Optimistic — SQL (this is what §6/§8.1's fencing-token CAS already is)</h4>
+      <pre><span class="cm">-- no lock acquired; read is a plain SELECT, can even be read-committed / snapshot</span>
+SELECT state, version, expires_at FROM seat_inventory
+ WHERE show_id = $1 AND seat_id = $2;
+
+<span class="cm">-- application checks state == AVAILABLE in memory, then issues:</span>
+UPDATE seat_inventory
+   SET state = 1, hold_token = $new_token, held_by = $user,
+       version = version + 1, expires_at = now() + interval '8 minutes'
+ WHERE show_id = $1 AND seat_id = $2
+   AND version = $version_read_earlier;      <span class="cm">-- CAS guard: 0 rows updated = someone else won</span>
+
+<span class="cm">-- driver/ORM checks rows-affected; 0 rows = OptimisticLockException / retry</span></pre>
+
+      <h4 style="font-family:var(--sans); text-transform:none; letter-spacing:normal; color:var(--text); font-size:14.5px; margin:20px 0 6px;">Pessimistic — SQL (row lock held for the whole transaction)</h4>
+      <pre><span class="cm">-- lock acquired the instant this runs; other transactions on this row now block</span>
+BEGIN;
+
+SELECT state, expires_at FROM seat_inventory
+ WHERE show_id = $1 AND seat_id = $2
+   FOR UPDATE;                                <span class="cm">-- blocking row lock</span>
+
+<span class="cm">-- application checks state == AVAILABLE, still holding the lock</span>
+UPDATE seat_inventory
+   SET state = 1, hold_token = $token, held_by = $user,
+       expires_at = now() + interval '8 minutes'
+ WHERE show_id = $1 AND seat_id = $2;
+
+COMMIT;                                        <span class="cm">-- lock released only here</span>
+
+<span class="cm">-- multi-seat booking (group of 4): lock ALL seats in one transaction,</span>
+<span class="cm">-- in a FIXED, deterministic order — otherwise two users booking the</span>
+<span class="cm">-- same 2 seats in opposite order deadlock each other</span>
+BEGIN;
+SELECT * FROM seat_inventory
+ WHERE show_id = $1 AND seat_id = ANY($seat_ids)
+ ORDER BY seat_id                              <span class="cm">-- deterministic lock order = no deadlock</span>
+   FOR UPDATE;
+<span class="cm">-- ... validate all 4 are AVAILABLE, then UPDATE all 4 ...</span>
+COMMIT;</pre>
+
+      <h4 style="font-family:var(--sans); text-transform:none; letter-spacing:normal; color:var(--text); font-size:14.5px; margin:20px 0 6px;">Code changes needed — optimistic (Java / Spring Data JPA)</h4>
+      <pre><span class="cm">// 1. Add a @Version column — JPA auto-generates the CAS UPDATE + version bump</span>
+<span class="kw">@Entity</span>
+<span class="cm">class</span> SeatInventory {
+    <span class="kw">@Id</span> Long id;
+    Long showId;
+    String seatId;
+    Integer state;
+    String holdToken;
+    <span class="kw">@Version</span> Long version;      <span class="cm">// this one annotation is the entire mechanism</span>
+}
+
+<span class="cm">// 2. Catch the failure and turn it into a client-facing 409, don't silently retry</span>
+<span class="kw">@Transactional</span>
+<span class="cm">void</span> holdSeatOptimistic(Long showId, String seatId, Long userId) {
+    SeatInventory seat = repo.findByShowIdAndSeatId(showId, seatId);
+    <span class="kw">if</span> (seat.getState() != AVAILABLE)
+        <span class="kw">throw new</span> SeatUnavailableException(seatId);
+    seat.setState(HELD);
+    seat.setHoldToken(newToken());
+    <span class="kw">try</span> {
+        repo.saveAndFlush(seat);              <span class="cm">// fires the version-guarded UPDATE</span>
+    } <span class="kw">catch</span> (OptimisticLockingFailureException e) {
+        <span class="kw">throw new</span> SeatConflictException(seatId);  <span class="cm">// -> HTTP 409, client re-reads seat map</span>
+    }
+}</pre>
+
+      <h4 style="font-family:var(--sans); text-transform:none; letter-spacing:normal; color:var(--text); font-size:14.5px; margin:20px 0 6px;">Code changes needed — pessimistic (Java / Spring Data JPA)</h4>
+      <pre><span class="cm">// 1. Request a PESSIMISTIC_WRITE lock hint on the query — JPA turns this into FOR UPDATE</span>
+<span class="kw">interface</span> SeatInventoryRepository <span class="kw">extends</span> JpaRepository&lt;SeatInventory, Long&gt; {
+
+    <span class="kw">@Lock</span>(LockModeType.PESSIMISTIC_WRITE)
+    <span class="kw">@Query</span>(<span class="st">"select s from SeatInventory s where s.showId=:showId and s.seatId in :seatIds order by s.seatId"</span>)
+    List&lt;SeatInventory&gt; lockForHold(<span class="kw">@Param</span>(<span class="st">"showId"</span>) Long showId,
+                                     <span class="kw">@Param</span>(<span class="st">"seatIds"</span>) List&lt;String&gt; seatIds);
+}
+
+<span class="cm">// 2. The transaction now holds real row locks for its full duration —</span>
+<span class="cm">//    keep it SHORT, and never call an external service (payment!) while inside it</span>
+<span class="kw">@Transactional</span>
+<span class="cm">void</span> holdSeatsPessimistic(Long showId, List&lt;String&gt; seatIds, Long userId) {
+    List&lt;SeatInventory&gt; seats = repo.lockForHold(showId, seatIds);   <span class="cm">// blocks here if contended</span>
+    <span class="kw">for</span> (SeatInventory s : seats) {
+        <span class="kw">if</span> (s.getState() != AVAILABLE) <span class="kw">throw new</span> SeatUnavailableException(s.getSeatId());
+    }
+    seats.forEach(s -&gt; { s.setState(HELD); s.setHoldToken(newToken()); });
+    <span class="cm">// commit on method exit releases every lock at once</span>
+}</pre>
+
+      <table>
+        <tbody><tr><th>Dimension</th><th>Optimistic</th><th>Pessimistic</th></tr>
+        <tr><td>Lock held during</td><td>Nothing — only the final write is conditional</td><td>Entire transaction, including app logic between read and write</td></tr>
+        <tr><td>Behavior under high contention</td><td>Retries pile up, throughput drops as conflict rate rises</td><td>Requests queue and wait — throughput degrades more gracefully but latency spikes</td></tr>
+        <tr><td>Deadlock risk</td><td>None — never holds more than one lock at a time</td><td>Real, for multi-row transactions — must lock rows in a fixed order</td></tr>
+        <tr><td>Cost when uncontended (the common case)</td><td>Near-zero — just an indexed UPDATE</td><td>Same, but still pays transaction/connection overhead for the lock machinery</td></tr>
+        <tr><td>Failure mode client sees</td><td>Immediate 409, safe to show "seat just taken"</td><td>Increased latency (waiting on the lock), then success or timeout</td></tr>
+        <tr><td>Best fit here</td><td>Single-seat hold on the hot path — conflicts are rare (one show, one seat) and must fail fast</td><td>Multi-seat group booking's final confirm — needs true all-or-nothing atomicity across several rows in one transaction</td></tr>
+      </table>
+
+      <div class="callout">
+        <div class="label">Why this design uses both, not one or the other</div>
+        The <strong>hold</strong> step (§8.1) is optimistic — CAS on a single row, because contention on a specific seat is rare and the system must reject fast rather than make 5,000 concurrent buyers queue behind a DB lock. The <strong>group-booking confirm</strong> step, which must atomically flip 2–8 seats from HELD to BOOKED as one unit, is where a short-lived pessimistic transaction (<code>FOR UPDATE ... ORDER BY seat_id</code>) is the simpler correct answer — the seats are already reserved by this point (low contention), and "all seats confirm or none do" is naturally a transaction, not a per-row CAS loop with manual rollback.
+      </div>
     </section>
 
     <!-- 9 -->
@@ -727,6 +846,42 @@ UPDATE seat_inventory
       <div class="vs-wrap">
         <div class="vs-card weak"><div class="vs-tag">Weak</div>"That's a bug, the seat map should always be accurate."</div>
         <div class="vs-card strong"><div class="vs-tag">Strong</div>"That's an intentional, bounded staleness — the seat-map read path is AP by design (§3), refreshed every 1-2s or via push. The correctness guarantee lives entirely in the write path's CAS check at hold time: worst case, a user selects a seat that's just been taken and gets an immediate, clear 409 — never a silent double-booking."</div>
+      </div>
+
+      <h3>"A user double-clicks 'Select Seat' — does that fire two concurrent hold requests for the same seat from the same person?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"The frontend should just disable the button after one click."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"UI debouncing is a nice-to-have, never the guarantee. Both requests race into the same CAS UPDATE; only one gets <code>state=0 → 1</code> (rows_affected=1), the other sees rows_affected=0 and is told 'already held' — by the same fencing check that stops a stranger, since the DB doesn't distinguish 'your other tab' from another user at the row level. The client should also send an <code>Idempotency-Key</code> per attempt so an identical retry after a timeout doesn't even reach the CAS twice."</div>
+      </div>
+
+      <h3>"User holds 4 seats for a group booking, pays, but the confirm transaction fails after seat 2 of 4 — do they end up with a half-confirmed booking?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"We'd confirm each seat one at a time and hope they all go through."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"Never loop individual CAS updates for a group booking — that's exactly how you get 2-of-4 confirmed. The confirm step locks all 4 rows pessimistically in one transaction (<code>SELECT ... FOR UPDATE ... ORDER BY seat_id</code>, §8.5), flips all 4 to BOOKED, and commits atomically. If any row fails validation (e.g. one hold already expired), the whole transaction rolls back — the user keeps their other 3 holds (if still unexpired) and sees exactly which seat failed, not a partial booking."</div>
+      </div>
+
+      <h3>"A seat's hold TTL expires at the exact millisecond the confirm request arrives — which one wins?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"We'd need very precise clocks to handle that correctly."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"No clock precision needed — the DB is the single arbiter. Confirm's CAS is <code>WHERE hold_token=$token AND expires_at &gt;= now()</code>, evaluated atomically inside one statement against Postgres's own clock at execution time. Either the row still has an unexpired matching token and confirm wins, or it doesn't and confirm is rejected with 'hold expired, please retry' — there's no window where both the reaper and the confirm can act on stale state, because whichever executes first wins the row and the second sees updated data."</div>
+      </div>
+
+      <h3>"What stops a user from opening 10 browser tabs (or fake accounts) to hold way more seats than allowed?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"We'd limit one hold per session."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"Session-scoped limits are trivial to bypass with incognito tabs or new accounts. The real control is a per-<em>user-identity</em> purchase cap enforced server-side at hold time (count active holds + confirmed bookings for that user_id across the show, reject the 11th), backed by device fingerprinting and rate limiting per IP to catch the multi-account case (§12). It's defense in depth, not a single check — no single signal fully stops a determined scalper, but stacking them raises the cost enough to matter."</div>
+      </div>
+
+      <h3>"Your booking is General Admission (no seat numbers, just a headcount) — does the same CAS pattern still prevent overselling?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"We'd just decrement a counter for each ticket sold."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"A plain decrement race-conditions under concurrency — 'read counter, subtract, write' loses updates the same way a naive seat check does. The fix is the same CAS discipline applied to a counter row: <code>UPDATE ga_inventory SET sold = sold + $qty WHERE show_id=$1 AND sold + $qty &lt;= capacity</code> in one atomic statement — the WHERE clause is the inventory check and the write in a single round trip, so two concurrent buyers can't both read '5 left' and both succeed in buying 5. GA is a simplification of the seat-level model (§2), not a different one — a single row instead of one row per seat."</div>
+      </div>
+
+      <h3>"The Redis fast-path lock says a seat is free, but Postgres — the actual source of truth — still shows it as HELD. How does that get resolved?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"That shouldn't happen since Redis and Postgres are kept in sync."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"They're allowed to disagree briefly — Redis is a cache/gate, not a second source of truth (§8.1), so this isn't a consistency violation, it's an expected transient state. If Redis says available, the request still proceeds to the Postgres CAS, which is the actual authority and will correctly reject it if the row is still HELD there — worst case, Redis being stale costs one wasted round trip to Postgres, never a double-booking. This is precisely why the design never lets Redis alone authorize a booking."</div>
       </div>
     </section>
 

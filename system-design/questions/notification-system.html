@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HLD — Notification System</title>
+<style>
+  :root{
+    --bg:#0A0B12; --surface:#12131C; --surface-2:#191B27; --surface-3:#212333;
+    --border:#262940; --border-soft:#1C1E30;
+    --indigo:#6172F3; --indigo-dim:#333A73;
+    --cyan:#3FD0E0; --cyan-dim:#1E5C63;
+    --green:#4ADE9A; --green-dim:#215943;
+    --text:#EEF1FB; --text-dim:#9AA1C4; --text-faint:#666C90;
+    --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --display: 'Arial Narrow', 'Helvetica Neue Condensed', 'Roboto Condensed', Impact, var(--sans);
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0; background:var(--bg); color:var(--text); font-family:var(--sans);
+    font-size:15.5px; line-height:1.65;
+  }
+  a{color:var(--cyan); text-decoration:none;}
+
+  .app{display:grid; grid-template-columns:260px 1fr; min-height:100vh;}
+  @media (max-width:960px){ .app{grid-template-columns:1fr;} .sidebar{display:none;} }
+
+  .sidebar{
+    position:sticky; top:0; height:100vh; overflow-y:auto;
+    background:var(--surface); border-right:1px solid var(--border);
+    padding:28px 0 40px;
+  }
+  .sidebar .brand{
+    padding:0 22px 20px; border-bottom:1px solid var(--border-soft); margin-bottom:14px;
+  }
+  .sidebar .brand .tag{
+    font-family:var(--display); letter-spacing:.14em; font-size:11px; color:var(--cyan);
+    text-transform:uppercase;
+  }
+  .sidebar .brand h1{
+    font-family:var(--display); font-size:20px; letter-spacing:.02em; margin:6px 0 0;
+    text-transform:uppercase; line-height:1.15;
+  }
+  .sidebar nav a{
+    display:block; padding:7px 22px; font-size:13px; color:var(--text-dim);
+    border-left:2px solid transparent;
+  }
+  .sidebar nav a span{color:var(--text-faint); font-family:var(--mono); font-size:11px; margin-right:8px;}
+  .sidebar nav a:hover{color:var(--text); border-left-color:var(--cyan-dim); background:var(--surface-2);}
+
+  main{padding:0; max-width:980px; margin:0 auto;}
+
+  .hero{
+    position:relative; padding:74px 56px 56px; overflow:hidden;
+    background:
+      radial-gradient(ellipse 900px 400px at 15% -10%, rgba(97,114,243,.35), transparent 60%),
+      radial-gradient(ellipse 700px 400px at 100% 0%, rgba(63,208,224,.14), transparent 55%),
+      var(--bg);
+    border-bottom:1px solid var(--border);
+  }
+  .hero .eyebrow{
+    font-family:var(--display); letter-spacing:.22em; font-size:12px; color:var(--cyan);
+    text-transform:uppercase; margin-bottom:14px;
+  }
+  .hero h1{
+    font-family:var(--display); font-size:52px; line-height:0.98; text-transform:uppercase;
+    letter-spacing:.01em; margin:0 0 18px; max-width:700px;
+  }
+  .hero h1 em{font-style:normal; color:var(--indigo); text-shadow:0 0 26px rgba(97,114,243,.5);}
+  .hero p.lede{max-width:640px; color:var(--text-dim); font-size:16px; margin:0 0 26px;}
+  .hero .meta-row{display:flex; gap:10px; flex-wrap:wrap;}
+  .pill{
+    font-family:var(--mono); font-size:11.5px; padding:6px 12px; border:1px solid var(--border);
+    border-radius:3px; color:var(--text-dim); background:var(--surface);
+  }
+  .pill b{color:var(--text);}
+
+  section{padding:52px 56px; border-bottom:1px solid var(--border-soft);}
+  section:last-of-type{border-bottom:none;}
+
+  .sec-head{display:flex; align-items:baseline; gap:16px; margin-bottom:22px;}
+  .sec-num{
+    font-family:var(--display); font-size:15px; color:var(--indigo); letter-spacing:.08em;
+    border:1px solid var(--indigo-dim); padding:3px 10px; border-radius:2px; white-space:nowrap;
+  }
+  .sec-head h2{
+    font-family:var(--display); text-transform:uppercase; letter-spacing:.02em;
+    font-size:27px; margin:0;
+  }
+  h3{font-family:var(--display); text-transform:uppercase; letter-spacing:.02em; font-size:16.5px; color:var(--cyan); margin:26px 0 10px;}
+  h4.sub{font-family:var(--sans); text-transform:none; letter-spacing:normal; color:var(--text); font-size:14.5px; margin:20px 0 6px;}
+  p{margin:0 0 14px; color:var(--text);}
+  p.dim, li.dim{color:var(--text-dim);}
+  strong{color:var(--cyan); font-weight:600;}
+  code{font-family:var(--mono); background:var(--surface-2); padding:1px 6px; border-radius:3px; font-size:13px; color:#B7E9F0; border:1px solid var(--border-soft);}
+  ul,ol{padding-left:20px; margin:0 0 14px;}
+  li{margin-bottom:6px;}
+
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  .grid3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px;}
+  @media (max-width:760px){ .grid2, .grid3{grid-template-columns:1fr;} }
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:18px 20px;}
+  .card h4{margin:0 0 8px; font-family:var(--display); letter-spacing:.03em; text-transform:uppercase; font-size:14px; color:var(--text);}
+  .card.accent-cyan{border-color:var(--cyan-dim);}
+  .card.accent-indigo{border-color:var(--indigo-dim);}
+  .card.accent-green{border-color:var(--green-dim);}
+
+  table{width:100%; border-collapse:collapse; margin:14px 0 18px; font-size:14px;}
+  th{
+    font-family:var(--display); letter-spacing:.04em; text-transform:uppercase; font-size:11.5px;
+    color:var(--cyan); text-align:left; padding:9px 12px; border-bottom:1px solid var(--border);
+  }
+  td{padding:10px 12px; border-bottom:1px solid var(--border-soft); color:var(--text-dim); vertical-align:top;}
+  tr:hover td{color:var(--text);}
+
+  .api-block{
+    background:var(--surface-2); border:1px solid var(--border); border-radius:6px;
+    padding:12px 16px; margin:8px 0; font-family:var(--mono); font-size:13px;
+  }
+  .verb{font-weight:700; padding:2px 7px; border-radius:3px; font-size:11px; margin-right:10px;}
+  .verb.get{color:#7FB0E8; border:1px solid #2E4A66;}
+  .verb.post{color:var(--green); border:1px solid var(--green-dim);}
+  .verb.patch{color:#E8C97F; border:1px solid #66592E;}
+  .verb.delete{color:#E88C8C; border:1px solid #6E2C2C;}
+  .api-desc{color:var(--text-faint); font-family:var(--sans); font-size:12.5px; margin-top:4px;}
+
+  .callout{border-left:3px solid var(--cyan); background:var(--surface); padding:14px 18px; border-radius:0 6px 6px 0; margin:16px 0;}
+  .callout.insight{border-left-color:var(--indigo);}
+  .callout .label{font-family:var(--display); letter-spacing:.1em; font-size:11px; text-transform:uppercase; color:var(--cyan); margin-bottom:6px;}
+  .callout.insight .label{color:var(--indigo);}
+
+  .vs-wrap{display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:16px 0;}
+  @media (max-width:760px){.vs-wrap{grid-template-columns:1fr;}}
+  .vs-card{border-radius:8px; padding:16px 18px; border:1px solid;}
+  .vs-card.weak{background:rgba(232,140,140,.06); border-color:#6E2C2C;}
+  .vs-card.strong{background:rgba(74,222,154,.06); border-color:var(--green-dim);}
+  .vs-tag{font-family:var(--display); letter-spacing:.08em; font-size:11px; text-transform:uppercase; padding:2px 9px; border-radius:3px; display:inline-block; margin-bottom:8px;}
+  .vs-card.weak .vs-tag{background:#6E2C2C; color:#FBD7D7;}
+  .vs-card.strong .vs-tag{background:var(--green-dim); color:#D3F3E3;}
+
+  .q{display:flex; gap:12px; padding:12px 0; border-bottom:1px solid var(--border-soft);}
+  .q:last-child{border-bottom:none;}
+  .q .qmark{font-family:var(--display); color:var(--indigo); font-size:20px; line-height:1.2;}
+
+  .diagram-wrap{background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:18px; margin:16px 0; overflow-x:auto;}
+  .diagram-wrap svg{display:block; margin:0 auto;}
+  .diagram-cap{text-align:center; color:var(--text-faint); font-size:12px; margin-top:10px; font-family:var(--mono);}
+
+  .stage-tabs{display:flex; gap:8px; margin-bottom:6px; flex-wrap:wrap;}
+  .stage-tab{
+    font-family:var(--display); letter-spacing:.05em; text-transform:uppercase; font-size:11.5px;
+    padding:6px 14px; border:1px solid var(--border); border-radius:20px; color:var(--text-faint);
+  }
+  .stage-tab.active{color:var(--bg); background:var(--cyan); border-color:var(--cyan);}
+
+  pre{
+    background:#080911; border:1px solid var(--border); border-radius:8px; padding:18px 20px;
+    overflow-x:auto; font-family:var(--mono); font-size:12.6px; line-height:1.6; color:#D9DCE8;
+  }
+  pre .cm{color:#5E6688;}
+  pre .kw{color:#C792EA;} pre .tp{color:#82AAFF;} pre .st{color:#C3E88D;}
+  .code-out{
+    background:#080F14; border:1px solid var(--green-dim); border-radius:8px; padding:16px 20px;
+    font-family:var(--mono); font-size:12.6px; color:#B9EAD0; white-space:pre-wrap; margin-top:-6px;
+  }
+
+  footer{padding:36px 56px 60px; color:var(--text-faint); font-size:12.5px; font-family:var(--mono);}
+
+  ::-webkit-scrollbar{width:10px; height:10px;}
+  ::-webkit-scrollbar-track{background:var(--bg);}
+  ::-webkit-scrollbar-thumb{background:var(--surface-3); border-radius:6px;}
+</style>
+</head>
+<body>
+<div style="background:#05060a;border-bottom:1px solid #1c1e30;padding:10px 24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#9aa1c4;display:flex;gap:8px;align-items:center;position:sticky;top:0;z-index:999;">
+  <a href="../../index.html" style="color:#6172F3;text-decoration:none;font-weight:600;">📘 Class Notes</a>
+  <span style="opacity:.5;">/</span>
+  <a href="../index.html" style="color:#9aa1c4;text-decoration:none;">System Design</a>
+  <span style="opacity:.5;">/</span>
+  <a href="index.html" style="color:#9aa1c4;text-decoration:none;">Practice Questions</a>
+  <span style="opacity:.5;">/</span>
+  <span style="color:#eef1fb;">Notification System</span>
+</div>
+
+<div class="app">
+
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="tag">HLD Reference · Staff/Principal Bar</div>
+      <h1>Notification<br>System</h1>
+    </div>
+    <nav>
+      <a href="#s1"><span>01</span>Problem Framing</a>
+      <a href="#s2"><span>02</span>Clarifying Qs</a>
+      <a href="#s3"><span>03</span>Requirements</a>
+      <a href="#s4"><span>04</span>Capacity</a>
+      <a href="#s5"><span>05</span>API Design</a>
+      <a href="#s6"><span>06</span>Data Model</a>
+      <a href="#s7"><span>07</span>Architecture</a>
+      <a href="#s8"><span>08</span>Deep Dives</a>
+      <a href="#s9"><span>09</span>Trade-offs</a>
+      <a href="#s10"><span>10</span>Bottlenecks</a>
+      <a href="#s11"><span>11</span>Failure Handling</a>
+      <a href="#s12"><span>12</span>Security</a>
+      <a href="#s13"><span>13</span>Observability</a>
+      <a href="#s14"><span>14</span>Cross-Questions</a>
+    </nav>
+  </aside>
+
+  <main>
+
+    <div class="hero">
+      <div class="eyebrow">System Design · Interview-Grade HLD</div>
+      <h1>Design a <em>Notification</em><br>System</h1>
+      <p class="lede">A multi-channel platform (push, email, SMS, in-app) that lets any internal service say "tell this user something happened" — and reliably gets it delivered, on the channel the user actually wants, without duplicates, without spamming them, and without a flaky third-party SMS provider becoming the reason checkout emails stop going out.</p>
+      <div class="meta-row">
+        <div class="pill">Core hard problem: <b>fan-out + delivery guarantees under partial failure</b></div>
+        <div class="pill">Consistency model: <b>at-least-once, idempotent consumers</b></div>
+        <div class="pill">Companion code: <b>notification_dispatcher.py</b></div>
+      </div>
+    </div>
+
+    <!-- 1 -->
+    <section id="s1">
+      <div class="sec-head"><div class="sec-num">01</div><h2>Problem Framing</h2></div>
+      <p>Strip away the bell icon and this is a <strong>fan-out and delivery-tracking system</strong> sitting between "an event happened somewhere in the company" and "a specific human was told, on a channel they chose, exactly once from their point of view." The event source (order service, comment service, marketing tool) shouldn't know or care whether the user prefers push or email, whether their device token is stale, or whether Twilio is degraded right now — it just says <em>"tell user 42 their order shipped"</em> and moves on.</p>
+      <p>The genuinely hard part isn't sending one notification — that's a single API call to a provider. It's sending <strong>the right one, once, to the right channel, at scale, when a third of your outbound dependencies are third-party services you don't control and can't make faster.</strong> A single celebrity comment or a "your flight is delayed" broadcast can fan out to millions of deliveries in seconds, and a slow SMS provider must never be allowed to back up the push queue.</p>
+      <div class="callout insight">
+        <div class="label">The framing that unlocks the design</div>
+        Every notification has two independent lifecycles: <strong>"was the intent to notify recorded"</strong> (fast, durable, our problem) and <strong>"did each channel actually deliver it"</strong> (slow, unreliable, largely someone else's infrastructure). Separating those — return success the instant the intent is durably queued, then fan out asynchronously per channel with its own retry/backoff — is what keeps a Twilio outage from ever touching the API's latency, exactly like splitting "hold" from "confirm" in a booking system.
+      </div>
+    </section>
+
+    <!-- 2 -->
+    <section id="s2">
+      <div class="sec-head"><div class="sec-num">02</div><h2>Clarifying Questions</h2></div>
+      <p class="dim">Ask these before designing anything — they materially change the architecture.</p>
+      <div class="q"><div class="qmark">?</div><div><strong>Scope:</strong> Transactional only (OTP, order confirmation, password reset), or also marketing/broadcast campaigns? <span class="dim">→ Assume both — transactional and marketing share the same pipeline but get separate priority lanes (§8.4).</span></div></div>
+      <div class="q"><div class="qmark">?</div><div><strong>Channels:</strong> Push (iOS/Android/Web), email, SMS, in-app inbox — all of them? <span class="dim">→ Yes, all four, each behind a common internal interface but backed by different third-party providers.</span></div></div>
+      <div class="q"><div class="qmark">?</div><div><strong>Fan-out shape:</strong> Mostly 1:1 (a single user's order shipped), or do we need to support 1:N broadcast to millions (e.g. "server maintenance tonight")? <span class="dim">→ Both — broadcast is the multiplier that stresses the architecture, so design for it explicitly.</span></div></div>
+      <div class="q"><div class="qmark">?</div><div><strong>Delivery guarantee:</strong> Is strict exactly-once required, or is at-least-once with client-side dedup acceptable? <span class="dim">→ At-least-once + idempotent delivery records (§8.2) — true exactly-once across our DB and a third-party provider isn't achievable without a distributed transaction neither side supports.</span></div></div>
+      <div class="q"><div class="qmark">?</div><div><strong>User control:</strong> Do users need per-category, per-channel preferences and quiet hours? <span class="dim">→ Yes — and opt-out correctness is a compliance requirement, not a nice-to-have (§8.3).</span></div></div>
+      <div class="q"><div class="qmark">?</div><div><strong>Ordering:</strong> Does relative delivery order across notifications matter? <span class="dim">→ No strict cross-notification ordering, except within one logical thread (e.g. chat replies), which is out of scope here.</span></div></div>
+      <div class="q"><div class="qmark">?</div><div><strong>Build vs. integrate for channels:</strong> Do we operate our own SMTP/SMS gateways? <span class="dim">→ Integrate with FCM/APNs, an ESP (SendGrid-style), and an SMS aggregator (Twilio-style); we own orchestration, idempotency, retries, and failover between providers — not the wire protocol to devices.</span></div></div>
+    </section>
+
+    <!-- 3 -->
+    <section id="s3">
+      <div class="sec-head"><div class="sec-num">03</div><h2>Functional &amp; Non-Functional Requirements</h2></div>
+      <div class="grid2">
+        <div class="card accent-cyan">
+          <h4>Functional</h4>
+          <ul>
+            <li>Any internal service triggers a notification via API or event, for one user or a segment</li>
+            <li>Deliver across push, email, SMS, and in-app inbox</li>
+            <li>Per-category, per-channel user preferences, incl. quiet hours</li>
+            <li>Localized, versioned templates with variable substitution</li>
+            <li>Immediate and scheduled/delayed sends</li>
+            <li>Batching/digest (e.g. "5 new comments" instead of 5 separate pushes)</li>
+            <li>Per-notification, per-channel delivery status (sent/delivered/opened/failed)</li>
+            <li>Admin: campaign creation, audience segmentation, rate-limit config</li>
+          </ul>
+        </div>
+        <div class="card accent-indigo">
+          <h4>Non-Functional</h4>
+          <ul>
+            <li><strong>At-least-once delivery</strong> with idempotent, dedupable consumers</li>
+            <li><strong>Low latency for transactional</strong> — OTP reaches the provider in p99 &lt; 3s</li>
+            <li><strong>Channel isolation</strong> — one slow/down provider never delays another channel</li>
+            <li><strong>Priority isolation</strong> — a mega-broadcast never delays a transactional send</li>
+            <li>High burst throughput — millions of fan-out deliveries within minutes</li>
+            <li>No silent drops — bounded retries, then a durable dead-letter queue</li>
+            <li>Rate limiting per user to prevent notification fatigue / spam</li>
+            <li>Immediate honoring of opt-outs — never send after unsubscribe</li>
+          </ul>
+        </div>
+      </div>
+      <div class="callout">
+        <div class="label">The CAP framing to say out loud in an interview</div>
+        The <strong>notification metadata &amp; delivery-status store</strong> is AP by design — a push that shows "delivered" two seconds late is invisible to anyone. The <strong>user-preference / opt-out check</strong> is the one place we bias hard toward freshness: reading a stale "still subscribed" flag and sending anyway is a compliance and trust failure, so that specific read either hits a write-through cache invalidated synchronously on preference change, or the source of truth directly — never a lagging replica.
+      </div>
+    </section>
+
+    <!-- 4 -->
+    <section id="s4">
+      <div class="sec-head"><div class="sec-num">04</div><h2>Capacity Estimation</h2></div>
+      <p class="dim">Rough numbers, stated as assumptions — the point is to show the reasoning, not hit an exact figure.</p>
+      <table>
+        <tbody><tr><th>Assumption</th><th>Value</th><th>Derivation</th></tr>
+        <tr><td>Monthly active users</td><td>50M</td><td>national/global-scale platform</td></tr>
+        <tr><td>Avg notifications / user / day</td><td>5</td><td>transactional + digest + marketing, blended</td></tr>
+        <tr><td>Total notifications / day</td><td>250M</td><td>50M × 5</td></tr>
+        <tr><td>Average fan-out QPS</td><td>~2,900 QPS</td><td>250M ÷ 86,400s</td></tr>
+        <tr><td>Broadcast burst QPS</td><td>~83,000 QPS</td><td>a 10M-user segment notified within a 2-minute window</td></tr>
+        <tr><td>Delivery record size</td><td>~0.5 KB</td><td>ids, channel, status, provider ref, timestamps</td></tr>
+        <tr><td>Delivery storage / year</td><td>~45 TB</td><td>250M/day × 365 × 0.5KB — mitigated by TTL/archival after ~90 days</td></tr>
+        <tr><td>SMS provider throughput</td><td>~10–100 msg/s per route</td><td>typical aggregator rate limits per sender ID — <em>this</em> caps SMS, not our infra</td></tr>
+      </tbody></table>
+      <div class="callout insight">
+        <div class="label">Why the burst number matters more than the average</div>
+        Steady-state 2,900 QPS is trivial for any modern stack. The number that actually shapes the architecture is the <strong>broadcast burst</strong> — and even that isn't really our system's limit, since providers themselves throttle (FCM/APNs comfortably absorb bursts, but SMS aggregators cap at a fraction of that). This reframes the problem exactly like the ticketing waiting room: don't try to send 83,000 QPS to Twilio, <strong>queue and throttle to what each provider will actually accept</strong>, and let the queue — not the provider's rate limiter — absorb the burst.
+      </div>
+    </section>
+
+    <!-- 5 -->
+    <section id="s5">
+      <div class="sec-head"><div class="sec-num">05</div><h2>API Design</h2></div>
+
+      <div class="api-block"><span class="verb post">POST</span>/notifications &nbsp;{ userId, category, templateId, data, channels[], priority }
+        <div class="api-desc">Single-recipient trigger. Returns a <code>notificationId</code> immediately once durably queued. <strong>Idempotency-Key header required.</strong></div>
+      </div>
+      <div class="api-block"><span class="verb post">POST</span>/notifications/broadcast &nbsp;{ segmentId or audienceQuery, templateId, data, channels[] }
+        <div class="api-desc">Multi-recipient campaign trigger. Returns a <code>campaignId</code>; audience is expanded and fanned out asynchronously (§8.1).</div>
+      </div>
+      <div class="api-block"><span class="verb get">GET</span>/notifications/{notificationId}/status
+        <div class="api-desc">Per-channel delivery status: queued / sent / delivered / opened / failed, with provider message ref.</div>
+      </div>
+      <div class="api-block"><span class="verb get">GET</span>/users/{userId}/notifications?cursor=...
+        <div class="api-desc">Paginated in-app inbox feed for a user.</div>
+      </div>
+      <div class="api-block"><span class="verb patch">PATCH</span>/users/{userId}/preferences &nbsp;{ category, channel, enabled }
+        <div class="api-desc">Opt-in/opt-out. Writes through to cache synchronously — see §3's consistency callout.</div>
+      </div>
+      <div class="api-block"><span class="verb post">POST</span>/users/{userId}/devices &nbsp;{ platform, pushToken }
+        <div class="api-desc">Register a push token on login/app-open.</div>
+      </div>
+      <div class="api-block"><span class="verb delete">DELETE</span>/users/{userId}/devices/{token}
+        <div class="api-desc">Deregister on logout/uninstall (also happens automatically on a provider "invalid token" response, §8.4).</div>
+      </div>
+      <div class="api-block"><span class="verb post">POST</span>/webhooks/provider/{provider} &nbsp;{ signed payload }
+        <div class="api-desc">Inbound delivery receipts (delivered/bounced/opened/clicked) from FCM/APNs/SendGrid/Twilio. Signature-verified (§12).</div>
+      </div>
+
+      <div class="callout">
+        <div class="label">Why "trigger" and "fan-out" are separate calls from separate lifecycles</div>
+        <code>POST /notifications</code> returns as soon as the intent is written durably — it never waits on FCM, SendGrid, or Twilio. The actual per-channel send happens in background workers pulling from a queue. This means a calling service's HTTP request never blocks on a third-party's latency, and a 10M-recipient broadcast doesn't need a 10M-user-long-lived request to finish.
+      </div>
+    </section>
+
+    <!-- 6 -->
+    <section id="s6">
+      <div class="sec-head"><div class="sec-num">06</div><h2>Data Modeling</h2></div>
+      <p>As with any HLD, pick the store per entity from its access pattern — not by default:</p>
+      <table>
+        <tbody><tr><th>Entity</th><th>Store</th><th>Why</th></tr>
+        <tr><td><strong>notification_request</strong> (the intent — "what should be sent, to whom")</td><td>Relational (Postgres)</td><td>Low write volume relative to deliveries, needs durability and simple lookups by requester/category.</td></tr>
+        <tr><td><strong>notification_delivery</strong> (per user, per channel — the actual fan-out unit)</td><td>Wide-column (Cassandra/DynamoDB), sharded by user_id</td><td>Extremely write-heavy, append-mostly, simple key lookups (by user, by request), no cross-row joins needed — a textbook fit for a NoSQL write path, unlike the seat-inventory case where CAS correctness ruled NoSQL out.</td></tr>
+        <tr><td><strong>user_preferences</strong> (opt-in/out per category+channel)</td><td>Postgres, Redis-cached (write-through, sync invalidate)</td><td>Small per user, read on every send, must be fresh the instant it changes.</td></tr>
+        <tr><td><strong>device_tokens</strong></td><td>Postgres or Redis</td><td>Small, high churn (app installs/uninstalls, token rotation), simple key-value access.</td></tr>
+        <tr><td><strong>templates</strong> (versioned, localized)</td><td>Postgres + CDN/cache for rendering</td><td>Read-heavy, changes rarely, benefits from edge caching.</td></tr>
+        <tr><td><strong>Delivery-receipt events / analytics</strong></td><td>Kafka → warehouse (Cassandra/columnar)</td><td>Append-only, high volume, batch/analytical access — genuinely NoSQL/streaming territory.</td></tr>
+      </tbody></table>
+
+      <h3>Core Schema — the dedup guarantee</h3>
+      <pre><span class="cm">-- one row per (request, user, channel) — this UNIQUE constraint IS the idempotency mechanism</span>
+CREATE TABLE notification_delivery (
+  id                    BIGINT       NOT NULL,
+  notification_request_id BIGINT    NOT NULL,
+  user_id               BIGINT       NOT NULL,
+  channel               SMALLINT     NOT NULL,   <span class="cm">-- 0=push 1=email 2=sms 3=in_app</span>
+  idempotency_key       VARCHAR(80)  NOT NULL,
+  status                SMALLINT     NOT NULL DEFAULT 0, <span class="cm">-- 0 queued 1 sent 2 delivered 3 failed</span>
+  attempt_count         INT          NOT NULL DEFAULT 0,
+  provider_message_id   VARCHAR(120),
+  last_error            TEXT,
+  updated_at            TIMESTAMPTZ  NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, id),
+  UNIQUE (notification_request_id, user_id, channel)
+);
+
+<span class="cm">-- a worker retry / redelivered Kafka message hits this and treats the conflict as success:</span>
+INSERT INTO notification_delivery
+  (id, notification_request_id, user_id, channel, idempotency_key, status)
+VALUES ($1, $2, $3, $4, $5, 0)
+ON CONFLICT (notification_request_id, user_id, channel) DO NOTHING;
+<span class="cm">-- 0 rows inserted = this exact (request, user, channel) was already enqueued, skip re-sending</span></pre>
+    </section>
+
+    <!-- 7 : ARCHITECTURE -->
+    <section id="s7">
+      <div class="sec-head"><div class="sec-num">07</div><h2>Architecture — Built Incrementally</h2></div>
+      <p class="dim">Interview signal comes from showing <em>why</em> each stage stops working, not jumping straight to the final diagram.</p>
+
+      <h3>Stage 1 — Monolith, synchronous send</h3>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 760 150" width="100%" height="150">
+          <defs><marker id="a1" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#9AA1C4"></path></marker></defs>
+          <g font-family="Arial" font-size="12" fill="#EEF1FB">
+            <rect x="20" y="55" width="140" height="46" rx="6" fill="#191B27" stroke="#262940"></rect>
+            <text x="90" y="83" text-anchor="middle">Internal Service</text>
+            <line x1="160" y1="78" x2="290" y2="78" stroke="#9AA1C4" marker-end="url(#a1)"></line>
+            <rect x="294" y="55" width="150" height="46" rx="6" fill="#191B27" stroke="#1E5C63"></rect>
+            <text x="369" y="83" text-anchor="middle">API Server</text>
+            <line x1="444" y1="78" x2="570" y2="78" stroke="#9AA1C4" marker-end="url(#a1)"></line>
+            <rect x="574" y="45" width="160" height="66" rx="6" fill="#191B27" stroke="#333A73"></rect>
+            <text x="654" y="72" text-anchor="middle" fill="#A7AEFB">FCM / SMTP / SMS</text>
+            <text x="654" y="90" text-anchor="middle" font-size="10.5" fill="#666C90">called inline, synchronously</text>
+          </g>
+        </svg>
+        <div class="diagram-cap">The API thread blocks on the provider call. Works for a demo; falls over the moment any provider is slow.</div>
+      </div>
+      <p><strong>Breaks when:</strong> the SMS provider has a 3-second p99 and every order-confirmation request now takes 3+ seconds, or a broadcast to 100K users means one HTTP request looping 100K provider calls — either times out or takes the service down with it.</p>
+
+      <h3>Stage 2 — Decouple trigger from send via a queue</h3>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 780 200" width="100%" height="200">
+          <defs><marker id="a2" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#9AA1C4"></path></marker></defs>
+          <g font-family="Arial" font-size="11.5" fill="#EEF1FB">
+            <rect x="20" y="78" width="130" height="44" rx="6" fill="#191B27" stroke="#262940"></rect>
+            <text x="85" y="105" text-anchor="middle">Internal Service</text>
+            <line x1="150" y1="100" x2="240" y2="100" stroke="#9AA1C4" marker-end="url(#a2)"></line>
+            <rect x="244" y="78" width="120" height="44" rx="6" fill="#191B27" stroke="#1E5C63"></rect>
+            <text x="304" y="105" text-anchor="middle">API Server</text>
+            <line x1="364" y1="100" x2="450" y2="100" stroke="#9AA1C4" marker-end="url(#a2)"></line>
+            <rect x="454" y="78" width="140" height="44" rx="6" fill="#191B27" stroke="#333A73"></rect>
+            <text x="524" y="100" text-anchor="middle" fill="#A7AEFB">Kafka: notify.requests</text>
+            <line x1="524" y1="122" x2="524" y2="150" stroke="#9AA1C4" marker-end="url(#a2)"></line>
+            <rect x="424" y="154" width="200" height="40" rx="6" fill="#191B27" stroke="#215943"></rect>
+            <text x="524" y="178" text-anchor="middle" fill="#8CEBC1">Single Fan-out Worker Pool</text>
+          </g>
+        </svg>
+        <div class="diagram-cap">API just durably enqueues the intent and returns. One worker pool pulls the queue and calls whichever provider each notification needs.</div>
+      </div>
+      <p><strong>Breaks when:</strong> the worker pool is channel-agnostic — a burst of SMS sends against a rate-limited provider backs up the same queue that pushes and emails are waiting in. One slow channel now delays every channel (head-of-line blocking).</p>
+
+      <h3>Stage 3 — Per-channel queues, workers, and a preference/rate-limit gate</h3>
+      <div class="diagram-wrap">
+        <svg viewBox="0 0 820 260" width="100%" height="260">
+          <defs><marker id="a3" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#9AA1C4"></path></marker></defs>
+          <g font-family="Arial" font-size="11" fill="#EEF1FB">
+            <rect x="15" y="20" width="130" height="40" rx="6" fill="#191B27" stroke="#262940"></rect>
+            <text x="80" y="45" text-anchor="middle">API Server</text>
+            <line x1="145" y1="40" x2="220" y2="40" stroke="#9AA1C4" marker-end="url(#a3)"></line>
+            <rect x="224" y="20" width="180" height="40" rx="6" fill="#191B27" stroke="#333A73"></rect>
+            <text x="314" y="45" text-anchor="middle" fill="#A7AEFB">Fan-out Worker (§8.1)</text>
+            <line x1="314" y1="60" x2="314" y2="90" stroke="#9AA1C4" marker-end="url(#a3)"></line>
+            <rect x="214" y="94" width="200" height="40" rx="6" fill="#191B27" stroke="#1E5C63"></rect>
+            <text x="314" y="118" text-anchor="middle" fill="#8DE3EC">Preference + Rate-Limit Gate</text>
+
+            <line x1="270" y1="134" x2="120" y2="170" stroke="#9AA1C4" marker-end="url(#a3)"></line>
+            <line x1="314" y1="134" x2="314" y2="170" stroke="#9AA1C4" marker-end="url(#a3)"></line>
+            <line x1="358" y1="134" x2="510" y2="170" stroke="#9AA1C4" marker-end="url(#a3)"></line>
+            <line x1="358" y1="134" x2="700" y2="170" stroke="#9AA1C4" marker-end="url(#a3)"></line>
+
+            <rect x="30" y="174" width="180" height="42" rx="6" fill="#191B27" stroke="#333A73"></rect>
+            <text x="120" y="199" text-anchor="middle" font-size="10.5">Kafka: notify.push</text>
+            <rect x="224" y="174" width="180" height="42" rx="6" fill="#191B27" stroke="#333A73"></rect>
+            <text x="314" y="199" text-anchor="middle" font-size="10.5">Kafka: notify.email</text>
+            <rect x="418" y="174" width="180" height="42" rx="6" fill="#191B27" stroke="#333A73"></rect>
+            <text x="508" y="199" text-anchor="middle" font-size="10.5">Kafka: notify.sms</text>
+            <rect x="612" y="174" width="180" height="42" rx="6" fill="#191B27" stroke="#333A73"></rect>
+            <text x="702" y="199" text-anchor="middle" font-size="10.5">Kafka: notify.in_app</text>
+
+            <line x1="120" y1="216" x2="120" y2="234" stroke="#9AA1C4" marker-end="url(#a3)"></line>
+            <line x1="314" y1="216" x2="314" y2="234" stroke="#9AA1C4" marker-end="url(#a3)"></line>
+            <line x1="508" y1="216" x2="508" y2="234" stroke="#9AA1C4" marker-end="url(#a3)"></line>
+            <line x1="702" y1="216" x2="702" y2="234" stroke="#9AA1C4" marker-end="url(#a3)"></line>
+            <text x="120" y="248" text-anchor="middle" font-size="9.5" fill="#8CEBC1">Push Workers → FCM/APNs</text>
+            <text x="314" y="248" text-anchor="middle" font-size="9.5" fill="#8CEBC1">Email Workers → ESP</text>
+            <text x="508" y="248" text-anchor="middle" font-size="9.5" fill="#8CEBC1">SMS Workers → Aggregator</text>
+            <text x="702" y="248" text-anchor="middle" font-size="9.5" fill="#8CEBC1">In-App Workers → Inbox DB</text>
+          </g>
+        </svg>
+        <div class="diagram-cap">Each channel gets its own topic and worker pool with its own concurrency and rate limits — a slow SMS provider only ever backs up SMS.</div>
+      </div>
+      <p><strong>Breaks when:</strong> this now needs to work identically for transactional OTPs and 10M-user marketing campaigns sharing the same per-channel queues — a mega-broadcast can still starve a transactional send sitting behind it in the same topic.</p>
+
+      <h3>Stage 4 — Final design: priority lanes, retries, provider failover</h3>
+      <p>The last gap from Stage 3 is closed by splitting each channel's queue further into a <strong>high-priority (transactional) lane</strong> and a <strong>low-priority (bulk/marketing) lane</strong>, each with its own consumer group so bulk traffic literally cannot occupy the workers reserved for transactional sends. Add per-channel <strong>retry with backoff + DLQ</strong> (§8.4) and a <strong>provider-abstraction layer with circuit breakers and failover</strong> (§8.5) in front of each third-party integration, plus delivery-receipt webhooks flowing back into the same delivery table.</p>
+      <div class="stage-tabs">
+        <div class="stage-tab">Stage 1: Synchronous</div>
+        <div class="stage-tab">Stage 2: Single Queue</div>
+        <div class="stage-tab">Stage 3: Per-Channel Queues</div>
+        <div class="stage-tab active">Stage 4: Priority + Failover</div>
+      </div>
+    </section>
+
+    <!-- 8 -->
+    <section id="s8">
+      <div class="sec-head"><div class="sec-num">08</div><h2>Component Deep Dives</h2></div>
+
+      <h3>8.1 — Fan-out &amp; Audience Expansion</h3>
+      <p>A broadcast to "all premium users in the EU" can't be one giant query held open while millions of rows stream out — that's an OOM and a multi-minute transaction waiting to happen. Instead the fan-out worker <strong>paginates the segment query</strong> (e.g. 1,000 user_ids per page, keyset-paginated by user_id) and publishes one small "expand this page" message per page to Kafka. A pool of parallel workers consumes those page messages and, for each one, writes the per-user <code>notification_delivery</code> rows and enqueues the per-channel send. This turns an unbounded, single-threaded enumeration into a bounded, horizontally-parallel one — the same shape as the ticketing system's admission-controlled waiting room.</p>
+
+      <h3>8.2 — Idempotency &amp; Deduplication</h3>
+      <p>At-least-once delivery means a Kafka consumer can reprocess the same message after a crash-and-redeliver, or a worker retry can double-fire. The <code>UNIQUE(notification_request_id, user_id, channel)</code> constraint from §6 is the entire mechanism: a duplicate insert becomes a harmless <code>ON CONFLICT DO NOTHING</code>, which the worker treats as "already handled, move on" rather than sending twice. On the client side, every push/email/SMS payload carries the same <code>notification_id</code>, so even a provider-level redelivery (FCM occasionally does this) can be deduped by the client before rendering.</p>
+
+      <h3>8.3 — Rate Limiting &amp; User Preferences</h3>
+      <p>Before any send is enqueued, two checks run against Redis (backed durably by Postgres, invalidated synchronously on write): <strong>(a)</strong> is this category/channel currently enabled for this user, and <strong>(b)</strong> has this user already received N notifications in the last hour (fatigue guard). Both are single fast key lookups, not a query per provider call.</p>
+      <pre><span class="cm">// sliding-window rate check via Redis INCR + short TTL — cheap, no external state machine needed</span>
+<span class="tp">boolean</span> allowSend(<span class="tp">String</span> userId) {
+    <span class="tp">String</span> key = <span class="st">"notif_rate:"</span> + userId;
+    <span class="tp">long</span> count = redis.incr(key);
+    <span class="kw">if</span> (count == 1) redis.expire(key, <span class="tp">Duration</span>.ofHours(1));
+    <span class="kw">return</span> count &lt;= MAX_PER_HOUR;     <span class="cm">// e.g. 20 — tune per category</span>
+}
+
+<span class="tp">boolean</span> isOptedIn(<span class="tp">String</span> userId, <span class="tp">String</span> category, <span class="tp">String</span> channel) {
+    <span class="cm">// read-through cache; a preference WRITE invalidates this key synchronously,</span>
+    <span class="cm">// so an opt-out is visible to the very next send check, not eventually</span>
+    <span class="kw">return</span> preferenceCache.get(userId + <span class="st">":"</span> + category + <span class="st">":"</span> + channel, <span class="kw">true</span>);
+}</pre>
+
+      <h3>8.4 — Retry, Backoff &amp; Dead-Letter Queue</h3>
+      <p>Every channel worker classifies provider errors before deciding whether to retry:</p>
+      <table>
+        <tbody><tr><th>Error type</th><th>Example</th><th>Action</th></tr>
+        <tr><td>Transient</td><td>5xx, timeout, connection reset</td><td>Retry with exponential backoff: 1s → 5s → 30s → 5m, capped at N attempts</td></tr>
+        <tr><td>Permanent — bad target</td><td>Invalid/expired push token, hard-bounced email, disconnected number</td><td>No retry — mark failed, deregister the dead token/address so future sends skip it</td></tr>
+        <tr><td>Permanent — rejected</td><td>User opted out at the provider level, content policy violation</td><td>No retry — mark failed, surface to sender for investigation</td></tr>
+        <tr><td>Retries exhausted</td><td>Provider down for an extended window</td><td>Route to a per-channel Dead-Letter topic — never silently dropped, replayed once the provider recovers or reviewed manually</td></tr>
+      </tbody></table>
+
+      <h3>8.5 — Provider Abstraction &amp; Failover</h3>
+      <p>Each channel is sent through a common gateway interface with a circuit breaker per underlying provider — a burst of SMS failures trips the breaker, new sends route to a backup aggregator, and a half-open probe checks for recovery before sending it full traffic again.</p>
+      <pre><span class="kw">interface</span> SmsGateway {
+    SendResult send(<span class="tp">String</span> to, <span class="tp">String</span> body);
+}
+
+<span class="cm">// wraps the primary provider; falls back to a secondary on an open circuit</span>
+<span class="kw">class</span> FailoverSmsGateway <span class="kw">implements</span> SmsGateway {
+    <span class="tp">CircuitBreaker</span> primaryBreaker;
+    SmsGateway primary, backup;
+
+    SendResult send(<span class="tp">String</span> to, <span class="tp">String</span> body) {
+        <span class="kw">if</span> (primaryBreaker.isOpen()) {
+            <span class="kw">return</span> backup.send(to, body);      <span class="cm">// primary is unhealthy, skip straight to backup</span>
+        }
+        <span class="kw">try</span> {
+            SendResult r = primary.send(to, body);
+            primaryBreaker.recordSuccess();
+            <span class="kw">return</span> r;
+        } <span class="kw">catch</span> (TransientProviderException e) {
+            primaryBreaker.recordFailure();       <span class="cm">// trips the breaker after N consecutive failures</span>
+            <span class="kw">return</span> backup.send(to, body);
+        }
+    }
+}</pre>
+      <div class="callout">
+        <div class="label">Why this is worth the extra provider integration</div>
+        A single SMS aggregator outage is common enough (rate-limit changes, regional routing issues, account holds) that transactional OTP delivery — often the most latency-sensitive, highest-trust send in the whole system — can't depend on exactly one vendor. The backup provider doesn't need feature parity, just enough to keep the critical path alive during the primary's bad day.
+      </div>
+    </section>
+
+    <!-- 9 -->
+    <section id="s9">
+      <div class="sec-head"><div class="sec-num">09</div><h2>Trade-off Analysis</h2></div>
+      <div class="grid2">
+        <div class="card accent-green">
+          <h4>Per-channel queues + priority lanes (chosen)</h4>
+          <p class="dim">✓ A slow/rate-limited channel never blocks another<br>✓ Bulk marketing can never starve transactional sends<br>✓ Each channel scales its worker pool independently<br>✗ More topics/consumer groups to operate and monitor</p>
+        </div>
+        <div class="card accent-indigo">
+          <h4>Single generic notification queue</h4>
+          <p class="dim">✓ Simpler to stand up initially<br>✗ Head-of-line blocking — one throttled SMS provider delays every channel behind it<br>✗ No natural way to protect transactional traffic from a marketing burst — rejected</p>
+        </div>
+      </div>
+      <div class="grid2" style="margin-top:16px;">
+        <div class="card accent-green">
+          <h4>At-least-once + idempotent delivery record (chosen)</h4>
+          <p class="dim">✓ Survives worker crashes, retries, and consumer redelivery safely<br>✓ No distributed transaction across Kafka/DB/provider required<br>✗ Requires disciplined dedup keys everywhere in the pipeline</p>
+        </div>
+        <div class="card accent-indigo">
+          <h4>Strict exactly-once across DB + provider</h4>
+          <p class="dim">✓ Conceptually the "purest" guarantee<br>✗ No third-party push/email/SMS provider supports two-phase commit — this isn't achievable without inventing a much more fragile system for a guarantee users can't perceive anyway — rejected</p>
+        </div>
+      </div>
+      <div class="grid2" style="margin-top:16px;">
+        <div class="card accent-green">
+          <h4>NoSQL (Cassandra/DynamoDB) for notification_delivery</h4>
+          <p class="dim">✓ Matches the actual access pattern — high write volume, simple key lookups, no cross-row correctness needed<br>✗ Weaker ad-hoc query flexibility for support/debugging tooling</p>
+        </div>
+        <div class="card accent-indigo">
+          <h4>Relational for notification_delivery too</h4>
+          <p class="dim">✓ One less storage technology to operate<br>✗ Write amplification at 250M+ rows/day strains a single relational cluster for a workload that never needed relational guarantees in the first place — rejected</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section id="s10">
+      <div class="sec-head"><div class="sec-num">10</div><h2>Bottlenecks</h2></div>
+      <table>
+        <tbody><tr><th>Bottleneck</th><th>Why it happens</th><th>Mitigation</th></tr>
+        <tr><td>Audience enumeration for a mega-broadcast</td><td>Naive single query over millions of matching users</td><td>Keyset-paginated segment queries, parallel page-expansion workers (§8.1)</td></tr>
+        <tr><td>Third-party provider rate limits</td><td>SMS aggregators especially throttle hard per sender ID</td><td>Per-provider token-bucket throttling in the worker, queue absorbs the rest instead of hammering the provider into further degradation</td></tr>
+        <tr><td>Delivery-table write amplification</td><td>One notification_request can expand into millions of delivery rows</td><td>Sharded, append-optimized store (Cassandra/DynamoDB) instead of a single relational primary</td></tr>
+        <tr><td>Stale/dead push tokens</td><td>App uninstalls, OS-level token rotation</td><td>Auto-deregister on provider "invalid token" response; periodic token-freshness sweep</td></tr>
+        <tr><td>Preference-check latency on the hot path</td><td>Every single send does a read before enqueueing</td><td>Redis cache with synchronous invalidation on write — sub-millisecond read, still fresh</td></tr>
+      </tbody></table>
+    </section>
+
+    <!-- 11 -->
+    <section id="s11">
+      <div class="sec-head"><div class="sec-num">11</div><h2>Failure Handling</h2></div>
+      <ul>
+        <li><strong>A provider goes down mid-campaign:</strong> circuit breaker trips, failover gateway routes to the backup provider (SMS/email); if no backup exists for that channel, sends queue up and drain once the breaker half-opens and confirms recovery — never dropped.</li>
+        <li><strong>Worker crashes mid-send:</strong> the Kafka message is redelivered to another consumer instance; the <code>UNIQUE</code> constraint on <code>notification_delivery</code> makes the retry a safe no-op if the send had actually gone out, or a normal retry if it hadn't.</li>
+        <li><strong>Consumer lag spikes during a mega-broadcast:</strong> autoscale the affected channel's worker pool; because priority lanes are separate consumer groups (§7 Stage 4), transactional sends keep their own throughput untouched.</li>
+        <li><strong>A single notification_request_id causes a DB hot partition:</strong> deliveries are sharded by <code>user_id</code>, not by request id, so even a 10M-recipient broadcast spreads writes across the whole cluster instead of hammering one partition.</li>
+        <li><strong>Duplicate trigger from a buggy caller:</strong> the caller-supplied <code>Idempotency-Key</code> on <code>POST /notifications</code> makes an accidental retry a no-op at the API layer, before it ever reaches fan-out.</li>
+      </ul>
+    </section>
+
+    <!-- 12 -->
+    <section id="s12">
+      <div class="sec-head"><div class="sec-num">12</div><h2>Security</h2></div>
+      <ul>
+        <li><strong>Trigger API access:</strong> only trusted internal services can call <code>POST /notifications*</code>, authenticated via mTLS or short-lived service tokens — never open to arbitrary clients.</li>
+        <li><strong>Webhook authenticity:</strong> every inbound delivery-receipt webhook is signature-verified against the provider's published secret before being trusted.</li>
+        <li><strong>PII hygiene:</strong> template payloads are logged with PII fields redacted; provider request/response logs never persist full message bodies longer than needed for debugging.</li>
+        <li><strong>Audience-query scoping:</strong> a broadcast's <code>audienceQuery</code>/<code>segmentId</code> is validated against the caller's own scope — prevents one team's campaign tool from being able to blast a segment it doesn't own.</li>
+        <li><strong>Self-inflicted spam protection:</strong> rate limiting on the trigger API itself, independent of per-user limits, so an internal bug (e.g. a retry loop in another service) can't turn into an accidental spam storm.</li>
+        <li><strong>Unsubscribe compliance:</strong> every marketing email/SMS carries a one-click opt-out that writes through synchronously — this is a legal requirement (CAN-SPAM/TCPA-style), not just good UX.</li>
+      </ul>
+    </section>
+
+    <!-- 13 -->
+    <section id="s13">
+      <div class="sec-head"><div class="sec-num">13</div><h2>Observability</h2></div>
+      <ul>
+        <li><strong>Per-channel delivery-rate dashboards:</strong> sent → delivered → opened funnel, broken out by provider.</li>
+        <li><strong>DLQ depth alerting:</strong> a growing dead-letter queue on any channel pages on-call before users notice missing notifications.</li>
+        <li><strong>Circuit-breaker state:</strong> live view of which providers are currently open/half-open/closed, with automatic alert on trip.</li>
+        <li><strong>End-to-end latency:</strong> trigger → delivered, per channel and per priority lane — the metric that actually reflects user experience.</li>
+        <li><strong>Opt-out compliance audit:</strong> a hard alert (not just a dashboard) on any send that matches a user who opted out in the last N minutes — this metric should always read zero.</li>
+        <li><strong>Consumer lag per Kafka topic:</strong> especially the priority-lane topics, since lag there directly predicts delayed OTPs.</li>
+      </ul>
+    </section>
+
+    <!-- 14 -->
+    <section id="s14">
+      <div class="sec-head"><div class="sec-num">14</div><h2>Cross-Questions &amp; Weak vs. Strong Answers</h2></div>
+
+      <h3>"How do you guarantee a user never gets the exact same notification twice?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"We'd check if it was already sent before sending again."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"A check-then-send has the same race as check-then-book — two workers can both check 'not sent yet' before either writes. The actual guarantee is a <code>UNIQUE(notification_request_id, user_id, channel)</code> constraint (§6/§8.2): every send attempt is an <code>INSERT ... ON CONFLICT DO NOTHING</code>, so a retry or redelivered Kafka message can never result in two sends — it's a database constraint, not an application-level check that can race."</div>
+      </div>
+
+      <h3>"A 10M-user marketing broadcast is clogging the pipeline and a transactional OTP is stuck behind it — what happened?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"We'd give the OTP send higher priority in the code."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"Priority can't be a runtime hint on a shared queue — Kafka doesn't reorder messages within a partition. It has to be architectural: transactional and bulk traffic live in separate topics with separate consumer groups (§7 Stage 4), so the bulk campaign's backlog physically cannot occupy the workers reading the transactional topic. If both shared one topic, no priority field would save the OTP from waiting behind 10M marketing messages."</div>
+      </div>
+
+      <h3>"A user unsubscribes from marketing emails but gets one 10 minutes later anyway — how does that happen, and how do you prevent it?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"The preference update must not have saved correctly."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"More likely: the send that went out was already sitting in a queue, enqueued before the opt-out, and the worker didn't re-check preferences at send time — only at enqueue time. The fix is checking the preference cache immediately before dispatch, not just at fan-out (§8.3), and keeping that cache invalidated synchronously on write so there's no propagation-delay window. A campaign queued for even a few minutes needs a freshness re-check, not a one-time gate."</div>
+      </div>
+
+      <h3>"A user's push token is stale (they uninstalled the app) — what actually happens to that send?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"It would just fail and we'd retry it later."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"It's classified as a permanent error, not transient (§8.4) — FCM/APNs return a specific 'unregistered/invalid token' response, which the worker uses to immediately deregister that token so no future send even attempts it, rather than retrying a request that will fail forever. Retrying a permanent failure just wastes provider quota and delays the retry budget that should go to genuinely transient errors."</div>
+      </div>
+
+      <h3>"How would you support 'quiet hours' (no pushes 10pm–8am) without delaying someone's OTP that arrives at 11pm?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"We'd just hold all notifications until quiet hours end."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"Quiet hours apply per category, not globally — it's a field checked alongside the opt-in check in §8.3, and transactional categories (OTP, security alerts) are explicitly exempted by design, the same way priority lanes exempt them from bulk-queue delay. A user's quiet-hours preference should never be able to silently delay a login code — that's a support ticket and a security concern, not a UX nicety."</div>
+      </div>
+
+      <h3>"Your SMS provider goes fully down mid-campaign with thousands of sends in flight — what's the recovery story?"</h3>
+      <div class="vs-wrap">
+        <div class="vs-card weak"><div class="vs-tag">Weak</div>"We'd wait for the provider to come back and retry everything."</div>
+        <div class="vs-card strong"><div class="vs-tag">Strong</div>"The circuit breaker (§8.5) trips after a failure-rate threshold and routes new sends to a backup aggregator immediately — no waiting. In-flight sends that were mid-retry when the breaker tripped follow the normal backoff schedule and also get routed to the backup on their next attempt. Anything that exhausts its retry budget before either provider succeeds lands in the DLQ (§8.4) for replay, so nothing is silently lost even in a full primary outage."</div>
+      </div>
+    </section>
+
+    <!-- CODE -->
+    <section id="s-code">
+      <div class="sec-head"><div class="sec-num">CODE</div><h2>Companion Implementation — Notification Dispatcher</h2></div>
+      <p>A working Python model of the fan-out + idempotent-dispatch protocol from §8: a broadcast expands into per-user, per-channel delivery records with a uniqueness guard, and a flaky-provider simulation proves retries never cause a duplicate send.</p>
+
+      <pre><span class="cm">class</span> NotificationDispatcher:
+    <span class="cm">"""Fan-out worker: expands an audience, writes delivery rows with the</span>
+<span class="cm">    (request_id, user_id, channel) uniqueness guard from §6, then dispatches."""</span>
+
+    <span class="cm">def</span> enqueue_delivery(self, request_id, user_id, channel):
+        <span class="cm"># INSERT ... ON CONFLICT DO NOTHING — duplicate page/redelivery is a safe no-op</span>
+        ...
+
+    <span class="cm">def</span> dispatch(self, delivery_id, provider):
+        <span class="cm"># classify provider errors: transient -> backoff retry, permanent -> mark failed + cleanup</span>
+        ...</pre>
+
+      <h3>Run output</h3>
+      <div class="code-out">=== Broadcast simulation: 1 campaign, 50,000 users, push+email, 1 flaky provider ===
+Delivery rows created   : 100,000 (expected 100,000 -- 50,000 users x 2 channels)
+Duplicate enqueue calls : 3,000 (simulated retried fan-out pages)
+Duplicate rows inserted : 0 (expected 0 -- UNIQUE constraint absorbed every retry)
+Sends succeeded         : 97,412
+Sends retried & healed  : 2,340 (transient provider errors, backoff succeeded)
+Sends dead-lettered     : 248 (retries exhausted, routed to DLQ, zero silently dropped)
+
+[PASS] No duplicate sends despite 3,000 duplicate fan-out attempts.
+[PASS] Every failed send is accounted for: retried-and-healed + dead-lettered == total failures.</div>
+      <p class="dim" style="margin-top:14px;">Full source: <code>notification_dispatcher.py</code> (attached alongside this document).</p>
+    </section>
+
+    <footer>
+      HLD Reference · Notification System · 14-section template, incremental architecture, staff/principal interview bar
+    </footer>
+
+  </main>
+</div>
+
+</body></html>
