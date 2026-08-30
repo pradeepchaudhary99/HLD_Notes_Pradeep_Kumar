@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kafka, In Depth — Theory, Failure Modes &amp; Exercises</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans:ital@1&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --void:#0B0D12;
+    --panel:#12161F;
+    --panel-2:#1A2029;
+    --paper:#F2EDDF;
+    --paper-ink:#211E15;
+    --ink:#E9E6DC;
+    --ink-dim:#9BA0AC;
+    --ink-faint:#5B606C;
+    --signal:#FFB020;
+    --signal-dim:#8a621c;
+    --stream:#4FD1C5;
+    --alert:#FF6B5E;
+    --rule: rgba(233,230,220,0.10);
+    --mono: 'IBM Plex Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace;
+    --sans: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+    --maxw: 880px;
+  }
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--void);
+    color:var(--ink);
+    font-family:var(--sans);
+    font-size:16px;
+    line-height:1.65;
+    -webkit-font-smoothing:antialiased;
+  }
+  a{color:var(--stream);}
+  code, .mono{font-family:var(--mono);}
+  ::selection{background:var(--signal); color:#0B0D12;}
+
+  /* ---------- layout shell ---------- */
+  .shell{display:grid; grid-template-columns:264px 1fr; min-height:100vh;}
+  .sidebar{
+    position:sticky; top:0; height:100vh; overflow-y:auto;
+    border-right:1px solid var(--rule);
+    padding:28px 20px 40px;
+    background:linear-gradient(180deg,var(--panel),var(--void) 85%);
+  }
+  .sidebar::-webkit-scrollbar{width:6px;}
+  .sidebar::-webkit-scrollbar-thumb{background:var(--panel-2); border-radius:3px;}
+  .brand{
+    font-family:var(--mono); font-weight:700; font-size:13px; letter-spacing:.08em;
+    color:var(--signal); text-transform:uppercase; margin-bottom:4px;
+  }
+  .brand-sub{font-size:12px; color:var(--ink-faint); margin-bottom:26px;}
+  .navlist{list-style:none; margin:0; padding:0;}
+  .navlist li{margin-bottom:2px;}
+  .navlist a{
+    display:flex; gap:10px; align-items:baseline;
+    text-decoration:none; color:var(--ink-dim);
+    font-size:13.5px; padding:7px 8px; border-radius:4px;
+    border-left:2px solid transparent;
+    transition:background .15s, color .15s, border-color .15s;
+  }
+  .navlist a:hover{background:var(--panel-2); color:var(--ink);}
+  .navlist a.active{color:var(--signal); border-left-color:var(--signal); background:var(--panel-2);}
+  .navlist .off{font-family:var(--mono); font-size:11px; color:var(--ink-faint); min-width:64px;}
+  .navlist a:hover .off, .navlist a.active .off{color:var(--signal-dim);}
+  .nav-group-label{
+    font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
+    color:var(--ink-faint); margin:22px 8px 8px;
+  }
+
+  main{min-width:0;}
+  .wrap{max-width:var(--maxw); margin:0 auto; padding:64px 28px 40px;}
+
+  /* ---------- hero ---------- */
+  .hero{
+    border-bottom:1px solid var(--rule);
+    padding:72px 28px 44px;
+    background:
+      radial-gradient(600px 300px at 85% -10%, rgba(255,176,32,0.09), transparent 60%),
+      radial-gradient(500px 260px at 10% 0%, rgba(79,209,197,0.06), transparent 60%);
+  }
+  .hero-inner{max-width:var(--maxw); margin:0 auto;}
+  .eyebrow{
+    font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--stream); margin-bottom:18px; display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow::before{content:""; width:8px; height:8px; border-radius:50%; background:var(--stream); box-shadow:0 0 10px var(--stream); flex:none;}
+  h1.title{
+    font-family:var(--mono); font-weight:700; font-size:clamp(32px,5vw,52px);
+    line-height:1.08; margin:0 0 18px; letter-spacing:-0.01em;
+  }
+  h1.title em{font-style:normal; color:var(--signal);}
+  .hero p.lede{font-size:18px; color:var(--ink-dim); max-width:640px; margin:0 0 36px;}
+
+  /* ledger / signature element */
+  .ledger{margin-top:8px;}
+  .ledger-label{font-family:var(--mono); font-size:11px; color:var(--ink-faint); letter-spacing:.08em; text-transform:uppercase; margin-bottom:10px; display:flex; justify-content:space-between;}
+  .ledger-strip{display:flex; gap:0; overflow-x:auto; border:1px solid var(--rule); border-radius:8px; background:var(--panel);}
+  .ledger-cell{
+    flex:1 0 auto; min-width:108px; padding:14px 12px; border-right:1px solid var(--rule);
+    position:relative;
+  }
+  .ledger-cell:last-child{border-right:none;}
+  .ledger-cell:first-child{border-radius:8px 0 0 8px;}
+  .ledger-cell:last-child{border-radius:0 8px 8px 0;}
+  .ledger-cell .off-num{font-family:var(--mono); font-size:11px; color:var(--ink-faint);}
+  .ledger-cell .ev{font-family:var(--mono); font-size:12.5px; color:var(--ink); margin-top:5px; font-weight:600;}
+  .ledger-cell.hot{background:rgba(255,176,32,0.08);}
+  .ledger-cell.hot .off-num{color:var(--signal);}
+  .ledger-tail{flex:0 0 auto; padding:14px 16px; display:flex; align-items:center; color:var(--ink-faint); font-family:var(--mono); font-size:12px;}
+
+  /* ---------- sections ---------- */
+  section.block{padding:56px 0; border-bottom:1px solid var(--rule);}
+  section.block:last-of-type{border-bottom:none;}
+  .sec-head{display:flex; align-items:baseline; gap:14px; margin-bottom:8px;}
+  .sec-offset{font-family:var(--mono); font-size:12px; color:var(--signal-dim); background:rgba(255,176,32,0.08); border:1px solid rgba(255,176,32,0.25); padding:2px 8px; border-radius:4px; letter-spacing:.03em;}
+  h2{font-family:var(--mono); font-size:26px; margin:0 0 6px; font-weight:700; letter-spacing:-.01em;}
+  h2 span.slash{color:var(--ink-faint); font-weight:400; margin:0 8px;}
+  .sec-kicker{color:var(--ink-dim); font-size:15.5px; margin:0 0 30px; max-width:640px;}
+  h3{font-family:var(--sans); font-size:18px; font-weight:600; margin:34px 0 10px; color:var(--ink);}
+  p{margin:0 0 16px; color:#D8D5CA;}
+  ul, ol{margin:0 0 16px; padding-left:22px; color:#D8D5CA;}
+  li{margin-bottom:7px;}
+  strong{color:var(--ink); font-weight:600;}
+
+  .chip{
+    display:inline-block; font-family:var(--mono); font-size:12.5px; background:var(--panel-2);
+    border:1px solid var(--rule); color:var(--stream); padding:2px 7px; border-radius:4px; margin:0 2px;
+  }
+
+  /* theory card (notebook paper) */
+  .paper-card{
+    background:var(--paper); color:var(--paper-ink); border-radius:10px;
+    padding:22px 24px; margin:20px 0; box-shadow:0 8px 24px rgba(0,0,0,.25);
+    transform:rotate(-0.15deg);
+  }
+  .paper-card h4{margin:0 0 8px; font-family:var(--mono); font-size:14px; text-transform:uppercase; letter-spacing:.06em; color:#6b5a2e;}
+  .paper-card p, .paper-card li{color:#2a2717;}
+  .paper-card p:last-child, .paper-card ul:last-child{margin-bottom:0;}
+
+  /* diagram boxes */
+  .diagram{
+    display:flex; flex-wrap:wrap; gap:10px; align-items:stretch; margin:22px 0;
+    background:var(--panel); border:1px solid var(--rule); border-radius:10px; padding:20px;
+  }
+  .dbox{
+    border:1px solid var(--rule); border-radius:8px; padding:12px 14px; background:var(--panel-2);
+    flex:1 1 140px; min-width:140px;
+  }
+  .dbox .dlabel{font-family:var(--mono); font-size:11px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.05em;}
+  .dbox .dtitle{font-family:var(--mono); font-weight:600; font-size:14px; margin-top:4px;}
+  .dbox.leader{border-color:rgba(255,176,32,0.4); background:rgba(255,176,32,0.06);}
+  .dbox.leader .dtitle{color:var(--signal);}
+  .dbox.follower{border-color:rgba(79,209,197,0.3); background:rgba(79,209,197,0.05);}
+  .dbox.follower .dtitle{color:var(--stream);}
+  .darrow{display:flex; align-items:center; justify-content:center; color:var(--ink-faint); font-size:18px; flex:0 0 24px;}
+
+  /* problem / solution cards */
+  .ps-card{border:1px solid var(--rule); border-radius:10px; margin:24px 0; overflow:hidden; background:var(--panel);}
+  .ps-row{padding:16px 20px; border-left:3px solid transparent;}
+  .ps-row.problem{border-left-color:var(--alert);}
+  .ps-row.solution{border-left-color:var(--stream); border-top:1px solid var(--rule);}
+  .ps-tag{font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; margin-bottom:6px; display:block;}
+  .ps-row.problem .ps-tag{color:var(--alert);}
+  .ps-row.solution .ps-tag{color:var(--stream);}
+  .ps-row p{margin:0;}
+  .ps-configs{padding:12px 20px 18px; border-top:1px solid var(--rule); display:flex; flex-wrap:wrap; gap:8px;}
+
+  /* callouts */
+  .callout{border-radius:8px; padding:14px 18px; margin:20px 0; border:1px solid var(--rule); background:var(--panel);}
+  .callout.warn{border-color:rgba(255,176,32,0.35); background:rgba(255,176,32,0.06);}
+  .callout.warn .ctitle{color:var(--signal);}
+  .callout .ctitle{font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:.07em; margin-bottom:6px; font-weight:600; color:var(--stream);}
+  .callout p:last-child{margin-bottom:0;}
+
+  .interview-tag{
+    display:flex; gap:10px; align-items:flex-start; margin:18px 0; padding:12px 16px;
+    border:1px dashed rgba(255,176,32,0.35); border-radius:8px; background:rgba(255,176,32,0.04);
+  }
+  .interview-tag .ico{font-family:var(--mono); color:var(--signal); font-size:13px; flex:none; padding-top:1px;}
+  .interview-tag p{margin:0; font-size:14.5px; color:#D8D5CA;}
+
+  /* code / terminal */
+  pre.term{
+    background:#0A0C10; border:1px solid var(--rule); border-radius:8px; padding:16px 18px;
+    overflow-x:auto; margin:14px 0 22px; position:relative;
+  }
+  pre.term code{font-family:var(--mono); font-size:13px; line-height:1.7; color:#CFEAE6; white-space:pre;}
+  pre.term .c{color:var(--ink-faint);}
+  pre.term .k{color:var(--signal);}
+  .term-label{
+    font-family:var(--mono); font-size:10.5px; color:var(--ink-faint); text-transform:uppercase;
+    letter-spacing:.08em; margin:18px 0 -8px;
+  }
+  .term-badge{
+    display:inline-flex; align-items:center; gap:6px; font-family:var(--mono); font-size:11px;
+    letter-spacing:.04em; padding:3px 10px 3px 8px; border-radius:20px; margin:18px 0 -8px;
+  }
+  .term-badge .dot{width:7px; height:7px; border-radius:50%; flex:none;}
+  .term-badge.t1{background:rgba(255,176,32,0.10); color:var(--signal); border:1px solid rgba(255,176,32,0.3);}
+  .term-badge.t1 .dot{background:var(--signal);}
+  .term-badge.t2{background:rgba(79,209,197,0.10); color:var(--stream); border:1px solid rgba(79,209,197,0.3);}
+  .term-badge.t2 .dot{background:var(--stream);}
+  .term-badge.t3{background:rgba(255,107,94,0.10); color:var(--alert); border:1px solid rgba(255,107,94,0.3);}
+  .term-badge.t3 .dot{background:var(--alert);}
+  .walk-step{
+    display:flex; align-items:center; gap:10px; margin:30px 0 -6px;
+  }
+  .walk-step .wn{
+    font-family:var(--mono); font-size:12px; color:var(--void); background:var(--signal);
+    width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+    flex:none; font-weight:700;
+  }
+  .walk-step .wt{font-family:var(--sans); font-size:15px; font-weight:600; color:var(--ink);}
+  .walk-observe{
+    border-left:2px solid var(--stream); padding-left:14px; margin:14px 0 22px; font-size:14px; color:var(--ink-dim);
+  }
+  .walk-observe strong{color:var(--stream); font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.05em; display:block; margin-bottom:4px;}
+  .fname{font-family:var(--mono); font-size:12px; color:var(--stream); background:rgba(79,209,197,0.08); border:1px solid rgba(79,209,197,0.25); padding:3px 9px; border-radius:5px; display:inline-block; margin-bottom:0;}
+
+  table{width:100%; border-collapse:collapse; margin:18px 0 26px; font-size:14.5px;}
+  th, td{text-align:left; padding:10px 12px; border-bottom:1px solid var(--rule); vertical-align:top;}
+  th{font-family:var(--mono); font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-faint); font-weight:600;}
+  td code{color:var(--stream); font-size:13px;}
+
+  /* exercises */
+  .ex-card{border:1px solid var(--rule); border-radius:10px; margin:22px 0; background:var(--panel); overflow:hidden;}
+  .ex-head{padding:16px 20px; display:flex; align-items:center; justify-content:space-between; gap:12px; border-bottom:1px solid var(--rule); background:var(--panel-2);}
+  .ex-head h4{margin:0; font-family:var(--sans); font-size:16px; font-weight:600; color:var(--ink);}
+  .ex-num{font-family:var(--mono); color:var(--ink-faint); font-size:12px; margin-right:8px;}
+  .diff{font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; padding:3px 9px; border-radius:20px; flex:none;}
+  .diff.rf1{background:rgba(79,209,197,0.12); color:var(--stream); border:1px solid rgba(79,209,197,0.3);}
+  .diff.rf2{background:rgba(255,176,32,0.12); color:var(--signal); border:1px solid rgba(255,176,32,0.3);}
+  .diff.rf3{background:rgba(255,107,94,0.12); color:var(--alert); border:1px solid rgba(255,107,94,0.3);}
+  .ex-body{padding:18px 20px 22px;}
+  .ex-body p{margin:0 0 12px;}
+  .ex-label{font-family:var(--mono); font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-faint); margin:16px 0 6px;}
+  .ex-label:first-child{margin-top:0;}
+  .reflect{border-left:2px solid var(--signal); padding-left:14px; margin-top:16px;}
+  .reflect p{color:var(--ink-dim); font-style:italic;}
+
+  .solution{margin-top:16px; border:1px solid rgba(79,209,197,0.25); border-radius:8px; background:rgba(79,209,197,0.04); overflow:hidden;}
+  .solution summary{
+    cursor:pointer; list-style:none; padding:10px 16px; display:flex; align-items:center; gap:8px;
+    font-family:var(--mono); font-size:12px; text-transform:uppercase; letter-spacing:.06em; color:var(--stream);
+    user-select:none;
+  }
+  .solution summary::-webkit-details-marker{display:none;}
+  .solution summary::before{content:"▸"; display:inline-block; font-size:11px; transition:transform .15s;}
+  .solution[open] summary::before{transform:rotate(90deg);}
+  .solution summary:hover{background:rgba(79,209,197,0.08);}
+  .solution-body{padding:4px 18px 16px; border-top:1px solid rgba(79,209,197,0.2);}
+  .solution-body p{margin:12px 0 6px; font-size:13.5px;}
+  .solution-body p:first-child{margin-top:14px;}
+  .solution-body pre.term{margin:8px 0 14px;}
+  .solution-body .sol-note{color:var(--ink-dim); font-size:13px; font-style:italic; margin:10px 0 0;}
+
+  /* quick ref */
+  .qr-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:20px 0;}
+  .qr-card{background:var(--panel); border:1px solid var(--rule); border-radius:8px; padding:14px 16px;}
+  .qr-card .qk{font-family:var(--mono); font-size:13px; color:var(--signal); font-weight:600;}
+  .qr-card .qv{font-size:13.5px; color:var(--ink-dim); margin-top:4px;}
+
+  footer{padding:40px 28px 80px; text-align:center; color:var(--ink-faint); font-size:13px; font-family:var(--mono);}
+
+  @media (max-width:880px){
+    .shell{grid-template-columns:1fr;}
+    .sidebar{position:relative; height:auto; top:auto; border-right:none; border-bottom:1px solid var(--rule);}
+    .qr-grid{grid-template-columns:1fr;}
+    .hero{padding:48px 20px 32px;}
+    .wrap{padding:40px 18px;}
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <nav class="sidebar">
+    <div class="brand">Kafka // Field Notes</div>
+    <div class="brand-sub">for engineers &amp; the students they're grilling</div>
+    <ul class="navlist">
+      <li><a href="#why" class="nav-link"><span class="off">offset:00</span> Why Kafka exists</a></li>
+      <li><a href="#concepts" class="nav-link"><span class="off">offset:01</span> Core mental model</a></li>
+      <li><a href="#architecture" class="nav-link"><span class="off">offset:02</span> Architecture &amp; replication</a></li>
+      <li><a href="#problems" class="nav-link"><span class="off">offset:03</span> Problems → solutions</a></li>
+      <li><a href="#docker" class="nav-link"><span class="off">offset:04</span> Docker + KRaft setup</a></li>
+      <li><a href="#cli" class="nav-link"><span class="off">offset:05</span> CLI command reference</a></li>
+      <li><a href="#groups" class="nav-link"><span class="off">offset:06</span> Consumer groups &amp; rebalancing</a></li>
+      <li><a href="#semantics" class="nav-link"><span class="off">offset:07</span> Delivery semantics</a></li>
+      <li><a href="#exercises" class="nav-link"><span class="off">offset:08</span> Hands-on exercises</a></li>
+      <li><a href="#interview" class="nav-link"><span class="off">offset:09</span> Interview corner</a></li>
+      <li><a href="#cheatsheet" class="nav-link"><span class="off">offset:10</span> Quick reference</a></li>
+    </ul>
+  </nav>
+
+  <main>
+    <header class="hero">
+      <div class="hero-inner">
+        <div class="eyebrow">Distributed Systems / Event Streaming</div>
+        <h1 class="title">Kafka, <em>in depth</em></h1>
+        <p class="lede">Kafka isn't a fancier queue — it's a distributed, append-only commit log. Every partitioning decision, replication rule, and consumer-group behavior falls out of that one idea. This doc builds the mental model, then makes you break it on purpose.</p>
+
+        <div class="ledger">
+          <div class="ledger-label"><span>topic: orders — partition 0 (append-only, immutable)</span><span>growing →</span></div>
+          <div class="ledger-strip">
+            <div class="ledger-cell"><div class="off-num">offset 0</div><div class="ev">order.created</div></div>
+            <div class="ledger-cell"><div class="off-num">offset 1</div><div class="ev">order.created</div></div>
+            <div class="ledger-cell"><div class="off-num">offset 2</div><div class="ev">order.paid</div></div>
+            <div class="ledger-cell"><div class="off-num">offset 3</div><div class="ev">order.created</div></div>
+            <div class="ledger-cell"><div class="off-num">offset 4</div><div class="ev">order.shipped</div></div>
+            <div class="ledger-cell hot"><div class="off-num">offset 5</div><div class="ev">order.paid</div></div>
+            <div class="ledger-tail">HEAD →</div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="wrap">
+
+      <!-- ================= WHY KAFKA ================= -->
+      <section class="block" id="why">
+        <div class="sec-head"><span class="sec-offset">offset:00</span></div>
+        <h2>Why Kafka exists</h2>
+        <p class="sec-kicker">Before you memorize APIs, understand the failure modes it was built to kill.</p>
+
+        <h3>The world before an event log</h3>
+        <p>Three patterns dominated, and each one hits a wall at scale:</p>
+        <ul>
+          <li><strong>Synchronous service calls.</strong> Service A calls Service B over REST/gRPC to notify it of something. Works fine until B is slow or down — now A is blocked, timeouts cascade, and adding a third interested service (C) means A has to know about C too. Coupling grows with every new consumer of the event.</li>
+          <li><strong>Traditional message queues (e.g. classic AMQP brokers).</strong> A message is delivered to <em>one</em> consumer and then it's gone. That's perfect for task distribution ("process this job exactly once"), but terrible for "N independent systems need to react to the same event" — you'd need fan-out exchanges per consumer, and once a message is consumed, a new consumer added next month can never see history.</li>
+          <li><strong>Database-as-a-queue.</strong> Producers insert rows, consumers poll <code class="mono">WHERE processed = false</code>. Row-level locking contention, polling latency, and it doesn't horizontally scale past a single table's write throughput.</li>
+        </ul>
+
+        <div class="paper-card">
+          <h4>Origin story (worth knowing for interviews)</h4>
+          <p>Kafka was built at LinkedIn (2010–2011) to solve a very specific pain: the same stream of user-activity events needed to feed real-time services <em>and</em> be replayed later into offline Hadoop jobs — from the exact same pipe, without producers knowing or caring who was downstream. That requirement — <strong>durable, replayable, many-independent-readers</strong> — is the seed of almost every Kafka design decision.</p>
+        </div>
+
+        <h3>The reframe</h3>
+        <p>Stop thinking "Kafka = queue with extra steps." Think: <strong>Kafka is a distributed, append-only, replicated commit log that consumers read from at their own pace, using an offset as a bookmark.</strong> Partitioning, replication, retention, consumer groups — all of it is just "how do we make an append-only log durable and fast at cluster scale."</p>
+
+        <div class="interview-tag">
+          <span class="ico">🎯</span>
+          <p><strong>Interview framing:</strong> if asked "what problem does Kafka solve," don't say "it's like RabbitMQ but faster." Say it decouples producers from consumers <em>in time</em> (via retention/replay) and <em>in cardinality</em> (many independent consumer groups can read the same stream), which neither a sync call nor a classic queue can do simultaneously.</p>
+        </div>
+      </section>
+
+      <!-- ================= CORE CONCEPTS ================= -->
+      <section class="block" id="concepts">
+        <div class="sec-head"><span class="sec-offset">offset:01</span></div>
+        <h2>Core mental model</h2>
+        <p class="sec-kicker">Eight terms. Get these exactly right and the rest of Kafka is just engineering detail on top of them.</p>
+
+        <table>
+          <tr><th>Term</th><th>What it actually means</th></tr>
+          <tr><td><code>Topic</code></td><td>A named, logical stream of records — e.g. <code>orders</code>. Not a single log; a topic is just a label over one or more partitions.</td></tr>
+          <tr><td><code>Partition</code></td><td>The <strong>real</strong> unit: an ordered, immutable, append-only log. A topic with 6 partitions is 6 independent logs. Ordering is only guaranteed <em>within</em> a partition, never across the topic.</td></tr>
+          <tr><td><code>Offset</code></td><td>A monotonically increasing integer the broker assigns to each record <em>within its partition</em> on append. It's the record's address, not a global sequence — offset 5 in partition 0 and offset 5 in partition 1 are unrelated records.</td></tr>
+          <tr><td><code>Producer</code></td><td>Writes records to a partition. Chooses the partition via a partitioner: hash of the record key (default: sticky/murmur2 hash) or round-robin/sticky batching if no key is given.</td></tr>
+          <tr><td><code>Consumer</code></td><td><strong>Pulls</strong> records by polling a partition and tracks its own position (the offset it has processed) — Kafka never pushes to consumers. This single fact is why Kafka doesn't need consumer-side flow control tricks: the consumer sets its own pace.</td></tr>
+          <tr><td><code>Consumer Group</code></td><td>A named set of consumers that split a topic's partitions between them — each partition is owned by exactly one consumer <em>in that group</em> at a time. Two different groups reading the same topic get their own independent copy of the stream (this is how Kafka gets pub/sub semantics on top of a log).</td></tr>
+          <tr><td><code>Broker</code></td><td>One Kafka server. It hosts some subset of partitions (as leader or follower) for the topics in the cluster.</td></tr>
+          <tr><td><code>Replica / ISR</code></td><td>Each partition is copied to <code>N</code> brokers (replication factor). One replica is the <strong>leader</strong> (serves all reads/writes); the rest are <strong>followers</strong> that replicate the log. The <strong>In-Sync Replica</strong> set is followers caught up close enough to the leader to be trusted in a leader election.</td></tr>
+        </table>
+
+        <div class="callout warn">
+          <div class="ctitle">Common misconception</div>
+          <p>"Kafka guarantees message ordering." No — it guarantees ordering <strong>per partition</strong>. If you need all events for a given entity (e.g. one <code class="mono">order_id</code>) to be processed in order, you must key the record by that entity so every event for it lands in the same partition. Across partitions, there is no ordering guarantee at all.</p>
+        </div>
+      </section>
+
+      <!-- ================= ARCHITECTURE ================= -->
+      <section class="block" id="architecture">
+        <div class="sec-head"><span class="sec-offset">offset:02</span></div>
+        <h2>Architecture &amp; replication</h2>
+        <p class="sec-kicker">What actually happens on disk and across brokers when a record is produced.</p>
+
+        <h3>Leader / follower / ISR</h3>
+        <p>Say topic <code class="mono">orders</code>, partition 0, has replication factor 3, spread across brokers 1, 2, 3. Broker 1 is elected <strong>leader</strong> for that partition — all produces and (by default) all consumes for partition 0 go through it. Brokers 2 and 3 run followers that continuously fetch from the leader to replicate the log.</p>
+
+        <div class="diagram">
+          <div class="dbox leader"><div class="dlabel">Broker 1</div><div class="dtitle">Leader — orders-0</div></div>
+          <div class="darrow">→</div>
+          <div class="dbox follower"><div class="dlabel">Broker 2</div><div class="dtitle">Follower (in ISR)</div></div>
+          <div class="darrow">→</div>
+          <div class="dbox follower"><div class="dlabel">Broker 3</div><div class="dtitle">Follower (in ISR)</div></div>
+        </div>
+
+        <p>A follower stays in the <strong>ISR (In-Sync Replica)</strong> set only while it's fetching frequently enough to be within <code class="chip">replica.lag.time.max.ms</code> of the leader. Fall behind that window (slow disk, network partition, GC pause) and the controller evicts it from ISR — it keeps replicating in the background, but it's no longer eligible to be elected leader until it catches back up.</p>
+
+        <p>When broker 1 dies, the controller picks a new leader <strong>from the current ISR</strong> — this is why ISR membership matters so much: it's the pool of "replicas we trust not to have lost data."</p>
+
+        <div class="callout warn">
+          <div class="ctitle">The unclean leader election trade-off</div>
+          <p>If every ISR member is also down, Kafka faces a choice: wait for one to come back (favors <strong>consistency</strong>, but the partition is unavailable), or promote a stale, out-of-ISR replica (favors <strong>availability</strong>, but you lose whatever records that replica never caught up on). This is controlled by <code class="chip">unclean.leader.election.enable</code> (default <code>false</code> in modern Kafka — correctly biased toward not silently losing data).</p>
+        </div>
+
+        <h3>Why appends are fast: the disk trick</h3>
+        <p>Kafka's headline throughput numbers come from refusing to do anything clever: every partition is a plain append-only file. Sequential writes to spinning or SSD disk are close to memory speed because there's no seeking — the OS page cache absorbs writes and flushes sequentially. Reads work the same way: a consumer reading from a known offset is just a sequential file read, and Kafka uses <strong>zero-copy</strong> (the <code class="mono">sendfile</code> syscall) to hand bytes straight from the page cache to the network socket without copying through user space at all.</p>
+
+        <h3>Segments &amp; retention</h3>
+        <p>A partition's log isn't one giant file — it's broken into <strong>segments</strong> (default 1 GB or a time boundary, whichever comes first), each with a <code class="mono">.log</code> file plus <code class="mono">.index</code>/<code class="mono">.timeindex</code> files for fast offset/timestamp lookups. Only the newest segment is "active" (appended to); older, sealed segments are what retention policy actually deletes or compacts.</p>
+        <ul>
+          <li><strong>Time/size retention</strong> (<code class="chip">retention.ms</code>, <code class="chip">retention.bytes</code>) — delete whole segments once they age out. Default use case: event streams, logs, metrics.</li>
+          <li><strong>Log compaction</strong> (<code class="chip">cleanup.policy=compact</code>) — instead of deleting by age, keep only the <em>latest</em> record per key, forever. This turns a topic into a changelog of "current state per key" — the mechanism behind Kafka Streams' KTables and CDC pipelines.</li>
+        </ul>
+
+        <h3>KRaft: no more Zookeeper</h3>
+        <p>Older Kafka used an external Zookeeper ensemble to store cluster metadata (broker list, partition leadership, ACLs) and run controller elections. Since Kafka 3.3 (production-ready) and mandatory from Kafka 4.0, that's replaced by <strong>KRaft</strong> (Kafka Raft) — a built-in Raft consensus quorum of controller nodes, storing metadata as an internal Kafka log instead of a separate system.</p>
+
+        <div class="interview-tag">
+          <span class="ico">🎯</span>
+          <p><strong>"Why did Kafka drop Zookeeper?"</strong> — Operational overhead of running two distributed systems, a scalability ceiling on metadata operations (partition counts in the hundreds of thousands got slow with ZK watches), and slower controller failover. KRaft folds metadata into Kafka's own replicated-log model — the same primitive it already uses for data.</p>
+        </div>
+      </section>
+
+      <!-- ================= PROBLEMS -> SOLUTIONS ================= -->
+      <section class="block" id="problems">
+        <div class="sec-head"><span class="sec-offset">offset:03</span></div>
+        <h2>Problems <span class="slash">/</span> How Kafka solves them</h2>
+        <p class="sec-kicker">This is the table that actually gets asked about in interviews — not "what is a topic," but "why does this design choice exist."</p>
+
+        <div class="ps-card">
+          <div class="ps-row problem"><span class="ps-tag">Problem</span><p>Producers and consumers are tightly coupled — adding a new independent system that cares about "order created" means touching the producer's code, or bolting on another queue.</p></div>
+          <div class="ps-row solution"><span class="ps-tag">Kafka's answer</span><p>Publish once to a topic. Any number of consumer groups can subscribe independently and each gets its own full copy of the stream, at its own pace, without the producer knowing they exist.</p></div>
+          <div class="ps-configs"><span class="chip">consumer group isolation</span><span class="chip">pub/sub over a log</span></div>
+        </div>
+
+        <div class="ps-card">
+          <div class="ps-row problem"><span class="ps-tag">Problem</span><p>You need to sustain millions of events/sec without the broker becoming the bottleneck.</p></div>
+          <div class="ps-row solution"><span class="ps-tag">Kafka's answer</span><p>Sequential disk appends + zero-copy reads (no seeking, no user-space copy) remove disk and CPU as bottlenecks. Producers batch and compress records client-side before sending, amortizing network overhead. Partitions let you parallelize both writes and reads across brokers and disks.</p></div>
+          <div class="ps-configs"><span class="chip">linger.ms</span><span class="chip">batch.size</span><span class="chip">compression.type</span><span class="chip">num.partitions</span></div>
+        </div>
+
+        <div class="ps-card">
+          <div class="ps-row problem"><span class="ps-tag">Problem</span><p>A broker dies mid-write. Did you just lose data?</p></div>
+          <div class="ps-row solution"><span class="ps-tag">Kafka's answer</span><p>Replication factor &gt; 1 plus ISR-aware leader election. Whether you can lose data depends entirely on the producer's <code class="mono">acks</code> setting — <code>acks=0</code> (fire-and-forget, fastest, no durability guarantee), <code>acks=1</code> (leader-only ack, can lose data if leader dies before followers replicate), <code>acks=all</code> (every ISR member must ack — durable, at the cost of latency).</p></div>
+          <div class="ps-configs"><span class="chip">replication.factor</span><span class="chip">acks=all</span><span class="chip">min.insync.replicas</span></div>
+        </div>
+
+        <div class="ps-card">
+          <div class="ps-row problem"><span class="ps-tag">Problem</span><p>Events for the same entity (e.g. one order) must be processed in the order they happened.</p></div>
+          <div class="ps-row solution"><span class="ps-tag">Kafka's answer</span><p>Ordering is guaranteed within a partition. Key records by entity ID (e.g. <code class="mono">order_id</code>) — the default partitioner hashes the key so every event for the same key always lands on the same partition, giving you per-key ordering without global ordering overhead.</p></div>
+          <div class="ps-configs"><span class="chip">record key → partition hash</span></div>
+        </div>
+
+        <div class="ps-card">
+          <div class="ps-row problem"><span class="ps-tag">Problem</span><p>A slow consumer would overwhelm a broker that tries to push data as fast as it's produced.</p></div>
+          <div class="ps-row solution"><span class="ps-tag">Kafka's answer</span><p>Consumers <em>pull</em> via <code class="mono">poll()</code> — they set their own rate. The broker never pushes. Retention acts as a buffer: a consumer that's hours behind simply has more log to catch up on; it doesn't cause backpressure on the producer at all (as long as retention hasn't expired that data).</p></div>
+          <div class="ps-configs"><span class="chip">pull-based poll loop</span><span class="chip">retention as buffer</span></div>
+        </div>
+
+        <div class="ps-card">
+          <div class="ps-row problem"><span class="ps-tag">Problem</span><p>A new team joins next quarter and needs to reprocess the last 30 days of order events — a classic queue already deleted them.</p></div>
+          <div class="ps-row solution"><span class="ps-tag">Kafka's answer</span><p>Consuming doesn't delete. An offset is just a per-consumer-group bookmark. Any consumer group can start fresh and seek to the earliest retained offset, replaying full history independently of every other consumer.</p></div>
+          <div class="ps-configs"><span class="chip">--from-beginning</span><span class="chip">retention.ms</span></div>
+        </div>
+
+        <div class="ps-card">
+          <div class="ps-row problem"><span class="ps-tag">Problem</span><p>Network blips cause producer retries, which can write the same record twice.</p></div>
+          <div class="ps-row solution"><span class="ps-tag">Kafka's answer</span><p>The <strong>idempotent producer</strong> tags each producer with a PID and a per-partition sequence number; the broker drops retried duplicates server-side. For multi-partition atomic writes ("commit these 3 records together or none"), <strong>transactions</strong> layer on top with a <code class="mono">transactional.id</code>, and consumers opt in via <code class="mono">isolation.level=read_committed</code>.</p></div>
+          <div class="ps-configs"><span class="chip">enable.idempotence=true</span><span class="chip">transactional.id</span><span class="chip">read_committed</span></div>
+        </div>
+
+        <div class="ps-card">
+          <div class="ps-row problem"><span class="ps-tag">Problem</span><p>You want a topic that represents "current state per key" (like a changelog), not an ever-growing event history.</p></div>
+          <div class="ps-row solution"><span class="ps-tag">Kafka's answer</span><p>Log compaction: set <code class="mono">cleanup.policy=compact</code> and Kafka periodically rewrites segments keeping only the latest record per key, discarding older ones. Delete a key entirely with a null-value "tombstone" record.</p></div>
+          <div class="ps-configs"><span class="chip">cleanup.policy=compact</span><span class="chip">tombstone (null value)</span></div>
+        </div>
+      </section>
+
+      <!-- ================= DOCKER SETUP ================= -->
+      <section class="block" id="docker">
+        <div class="sec-head"><span class="sec-offset">offset:04</span></div>
+        <h2>Docker + KRaft setup</h2>
+        <p class="sec-kicker">Two clusters: a single broker to move fast, and a 3-broker cluster for the replication/failover exercises later. No Zookeeper — KRaft only.</p>
+
+        <h3>A. Single broker (fastest way to get moving)</h3>
+        <p>Prereqs: Docker + Docker Compose v2. Create a folder, drop this in as <code class="fname">docker-compose.yml</code>:</p>
+
+        <pre class="term"><code><span class="c"># docker-compose.yml — single-broker KRaft cluster + Kafka UI</span>
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      CLUSTER_ID: "kraft-cluster-01-mkuoevbn"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+    depends_on:
+      - kafka
+
+volumes:
+  kafka-data:</code></pre>
+
+        <div class="callout warn">
+          <div class="ctitle">The listener gotcha everyone hits once</div>
+          <p>There are two ways to reach this broker: from <strong>inside</strong> the Docker network (other containers use <code class="mono">kafka:9092</code>) and from your <strong>host machine</strong> (your terminal / IDE uses <code class="mono">localhost:29092</code>). That's why there are two listener aliases — mixing them up is the #1 cause of "connection refused" when following Kafka tutorials.</p>
+        </div>
+
+        <p>Bring it up:</p>
+        <pre class="term"><code><span class="c"># start in the background</span>
+docker compose up -d
+
+<span class="c"># confirm both containers are healthy</span>
+docker compose ps
+
+<span class="c"># tail broker logs while debugging</span>
+docker compose logs -f kafka
+
+<span class="c"># Kafka UI is now at http://localhost:8080 — tear everything down:</span>
+docker compose down -v</code></pre>
+
+        <h3>B. Three-broker cluster (for replication &amp; failover exercises)</h3>
+        <p>Same idea, three nodes sharing one controller quorum. Save as <code class="fname">docker-compose-cluster.yml</code>:</p>
+
+        <pre class="term"><code><span class="c"># docker-compose-cluster.yml — 3-broker KRaft cluster</span>
+<span class="c"># "x-kafka-common" is a Compose extension field (not a service) — a</span>
+<span class="c"># reusable block each broker pulls in with &lt;&lt;: *kafka-common-env</span>
+x-kafka-common:
+  env: &kafka-common-env
+    KAFKA_PROCESS_ROLES: broker,controller
+    KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+    KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+    KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka-1:9093,2@kafka-2:9093,3@kafka-3:9093
+    KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+    KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+    KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+    KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+    KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+    CLUSTER_ID: "kraft-cluster-03-mkuoevbn"
+
+services:
+  kafka-1:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka-1
+    ports: ["9092:9092"]
+    environment:
+      <<: *kafka-common-env
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092,PLAINTEXT_HOST://localhost:29092
+
+  kafka-2:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka-2
+    ports: ["9094:9094"]
+    environment:
+      <<: *kafka-common-env
+      KAFKA_NODE_ID: 2
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9094,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092,PLAINTEXT_HOST://localhost:9094
+
+  kafka-3:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: kafka-3
+    ports: ["9095:9095"]
+    environment:
+      <<: *kafka-common-env
+      KAFKA_NODE_ID: 3
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:9095,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092,PLAINTEXT_HOST://localhost:9095
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports: ["8080:8080"]
+    environment:
+      KAFKA_CLUSTERS_0_NAME: cluster3
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+    depends_on: [kafka-1, kafka-2, kafka-3]</code></pre>
+
+        <pre class="term"><code>docker compose -f docker-compose-cluster.yml up -d
+docker compose -f docker-compose-cluster.yml ps</code></pre>
+
+        <div class="interview-tag">
+          <span class="ico">🎯</span>
+          <p>Want zero-config for a quick demo instead? <code class="chip">confluentinc/confluent-local</code> spins up a single KRaft broker with sane defaults baked in — good for throwaway experiments, not for the replication exercises below (it's single-node).</p>
+        </div>
+      </section>
+
+      <!-- ================= CLI ================= -->
+      <section class="block" id="cli">
+        <div class="sec-head"><span class="sec-offset">offset:05</span></div>
+        <h2>CLI command reference</h2>
+        <p class="sec-kicker">All CLI tools live inside the broker container. Run them via <code class="mono">docker exec</code>, or exec into a shell once and stay there.</p>
+
+        <div class="term-label">open a shell inside the broker</div>
+        <pre class="term"><code>docker exec -it kafka bash</code></pre>
+
+        <div class="callout warn">
+          <div class="ctitle">Command names on this image</div>
+          <p>On <code class="mono">confluentinc/cp-kafka</code> (the image this doc's Docker setup uses), the CLI binaries have <strong>no <code class="mono">.sh</code> suffix</strong> — it's <code class="mono">kafka-topics</code>, not <code class="mono">kafka-topics.sh</code>. (The <code class="mono">.sh</code> form is correct for the raw Apache Kafka tarball distribution, which is a different install — easy to mix up since most tutorials online assume that one.) Every command below already reflects the no-suffix form. If a command comes back <code class="mono">command not found</code>, run <code class="mono">find / -iname "kafka-topics*" 2&gt;/dev/null</code> to locate the real binary path for whatever image you're on.</p>
+        </div>
+
+        <p>From here on, commands assume you're either inside that shell (drop the <code class="mono">docker exec -it kafka</code> prefix) or running each line individually from the host — both are shown as one form; just prepend <code class="mono">docker exec -it kafka</code> if running from outside.</p>
+
+        <h3>Topics</h3>
+        <pre class="term"><code><span class="c"># list all topics</span>
+kafka-topics --bootstrap-server localhost:9092 --list
+
+<span class="c"># create "orders" with 3 partitions, replication factor 1 (single broker)</span>
+kafka-topics --bootstrap-server localhost:9092 \
+  --create --topic orders --partitions 3 --replication-factor 1
+
+<span class="c"># describe a topic — partitions, leader, replicas, ISR</span>
+kafka-topics --bootstrap-server localhost:9092 \
+  --describe --topic orders
+
+<span class="c"># increase partition count (you can only go up, never down)</span>
+kafka-topics --bootstrap-server localhost:9092 \
+  --alter --topic orders --partitions 6
+
+<span class="c"># delete a topic</span>
+kafka-topics --bootstrap-server localhost:9092 \
+  --delete --topic orders</code></pre>
+
+        <h3>Producing</h3>
+        <pre class="term"><code><span class="c"># plain console producer — one line = one record, no key</span>
+kafka-console-producer --bootstrap-server localhost:9092 --topic orders
+
+<span class="c"># with keys: type "key:value" per line</span>
+kafka-console-producer --bootstrap-server localhost:9092 --topic orders \
+  --property "parse.key=true" --property "key.separator=:"
+
+<span class="c"># durable producer: wait for all ISR members to ack</span>
+kafka-console-producer --bootstrap-server localhost:9092 --topic orders \
+  --producer-property acks=all --producer-property enable.idempotence=true</code></pre>
+
+        <h3>Consuming</h3>
+        <pre class="term"><code><span class="c"># from the current tail (only new messages)</span>
+kafka-console-consumer --bootstrap-server localhost:9092 --topic orders
+
+<span class="c"># replay everything from the start of the log</span>
+kafka-console-consumer --bootstrap-server localhost:9092 --topic orders \
+  --from-beginning
+
+<span class="c"># print key, value, partition and offset for every record</span>
+kafka-console-consumer --bootstrap-server localhost:9092 --topic orders \
+  --from-beginning --property print.key=true --property print.partition=true \
+  --property print.offset=true
+
+<span class="c"># join a named consumer group instead of an ephemeral one</span>
+kafka-console-consumer --bootstrap-server localhost:9092 --topic orders \
+  --group order-processors</code></pre>
+
+        <h3>Consumer groups</h3>
+        <pre class="term"><code><span class="c"># list all groups</span>
+kafka-consumer-groups --bootstrap-server localhost:9092 --list
+
+<span class="c"># describe a group — per-partition offset, log-end-offset, and LAG</span>
+kafka-consumer-groups --bootstrap-server localhost:9092 \
+  --describe --group order-processors
+
+<span class="c"># reset a group's offsets back to the beginning (group must be inactive)</span>
+kafka-consumer-groups --bootstrap-server localhost:9092 \
+  --group order-processors --topic orders \
+  --reset-offsets --to-earliest --execute
+
+<span class="c"># reset to a specific point in time</span>
+kafka-consumer-groups --bootstrap-server localhost:9092 \
+  --group order-processors --topic orders \
+  --reset-offsets --to-datetime 2026-08-20T00:00:00.000 --execute</code></pre>
+
+        <h3>Cluster health</h3>
+        <pre class="term"><code><span class="c"># which partitions have fewer in-sync replicas than they should?</span>
+kafka-topics --bootstrap-server localhost:9092 --describe --under-replicated-partitions
+
+<span class="c"># low-level: inspect a segment file's contents (advanced/debugging)</span>
+kafka-dump-log --print-data-log --files /var/lib/kafka/data/orders-0/00000000000000000000.log</code></pre>
+
+        <h3>Guided walkthrough: producer → broker → rebalance, live</h3>
+        <p>Everything above is reference. This is a script — open <strong>5 terminals</strong> side by side, run each numbered step in the terminal its badge names, and you'll watch a rebalance actually happen instead of reading about one. Uses the single-broker cluster and the <code class="mono">orders</code> topic (3 partitions) from earlier.</p>
+
+        <div class="walk-step"><span class="wn">1</span><span class="wt">Start a long-running keyed producer</span></div>
+        <span class="term-badge t1"><span class="dot"></span>terminal 1 — producer</span>
+        <pre class="term"><code>docker exec -it kafka kafka-console-producer --bootstrap-server localhost:9092 \
+  --topic orders --property "parse.key=true" --property "key.separator=:"</code></pre>
+        <p>Leave this open for the whole walkthrough. Don't send anything yet.</p>
+
+        <div class="walk-step"><span class="wn">2</span><span class="wt">Open a monitor terminal, describe the empty group</span></div>
+        <span class="term-badge t2"><span class="dot"></span>terminal 2 — monitor (re-run this throughout)</span>
+        <pre class="term"><code>docker exec -it kafka kafka-consumer-groups --bootstrap-server localhost:9092 \
+  --describe --group order-processors</code></pre>
+        <div class="walk-observe"><strong>Observe</strong>Likely an error or "no active members" — the group doesn't exist until a consumer joins it.</div>
+
+        <div class="walk-step"><span class="wn">3</span><span class="wt">Bring up consumer #1</span></div>
+        <span class="term-badge t1"><span class="dot"></span>terminal 3 — consumer A</span>
+        <pre class="term"><code>docker exec -it kafka kafka-console-consumer --bootstrap-server localhost:9092 \
+  --topic orders --group order-processors</code></pre>
+        <p>Re-run step 2's describe command in terminal 2.</p>
+        <div class="walk-observe"><strong>Observe</strong>One member, owning all 3 partitions (0, 1, 2). This is the baseline — a lone consumer always gets everything.</div>
+
+        <div class="walk-step"><span class="wn">4</span><span class="wt">Send some keyed traffic and confirm it arrives</span></div>
+        <span class="term-badge t1"><span class="dot"></span>terminal 1 — producer</span>
+        <pre class="term"><code>order-1:created
+order-2:created
+order-3:created
+order-4:created</code></pre>
+        <div class="walk-observe"><strong>Observe</strong>All 4 lines show up in consumer A's terminal (terminal 3) — it's the only member, so it gets everything regardless of which partition each key landed on.</div>
+
+        <div class="walk-step"><span class="wn">5</span><span class="wt">Bring up consumer #2 in the same group — force rebalance #1</span></div>
+        <span class="term-badge t1"><span class="dot"></span>terminal 4 — consumer B</span>
+        <pre class="term"><code>docker exec -it kafka kafka-console-consumer --bootstrap-server localhost:9092 \
+  --topic orders --group order-processors</code></pre>
+        <p>Re-run step 2's describe command in terminal 2 the moment consumer B joins.</p>
+        <div class="walk-observe"><strong>Observe</strong>Both consumer terminals briefly stop consuming — that's the rebalance pause. Describe now shows 2 members; partitions split roughly 2/1. Send a few more keyed messages from terminal 1 and watch: each key consistently goes to the <em>same</em> consumer terminal every time, because that key always hashes to the same partition, and that partition now belongs to one specific consumer.</div>
+
+        <div class="walk-step"><span class="wn">6</span><span class="wt">Bring up consumer #3 — force rebalance #2, reach full parallelism</span></div>
+        <span class="term-badge t1"><span class="dot"></span>terminal 5 — consumer C</span>
+        <pre class="term"><code>docker exec -it kafka kafka-console-consumer --bootstrap-server localhost:9092 \
+  --topic orders --group order-processors</code></pre>
+        <div class="walk-observe"><strong>Observe</strong>Describe now shows 3 members, each owning exactly 1 partition — this is the ceiling for this topic. If you started a 4th consumer right now, describe would show it as a registered member with zero partitions assigned: pure idle capacity.</div>
+
+        <div class="walk-step"><span class="wn">7</span><span class="wt">Kill consumer B — force rebalance #3, this time from a member leaving</span></div>
+        <p>Go to terminal 4 (consumer B) and hit <code class="mono">Ctrl+C</code>.</p>
+        <pre class="term"><code><span class="c"># in terminal 2, right after killing terminal 4</span>
+docker exec -it kafka kafka-consumer-groups --bootstrap-server localhost:9092 \
+  --describe --group order-processors</code></pre>
+        <div class="walk-observe"><strong>Observe</strong>Down to 2 members; consumer B's partition gets picked up by whichever of A or C the assignor lands it on. Send a few more messages — everything still arrives, just redistributed. This is the same mechanism as step 5, triggered by a departure instead of a join, which is the failure-mode version of what you just watched happen deliberately.</div>
+
+        <div class="walk-step"><span class="wn">8</span><span class="wt">Start a second, independent group on the same topic</span></div>
+        <span class="term-badge t3"><span class="dot"></span>new terminal — different group entirely</span>
+        <pre class="term"><code>docker exec -it kafka kafka-console-consumer --bootstrap-server localhost:9092 \
+  --topic orders --group audit-log --from-beginning</code></pre>
+        <div class="walk-observe"><strong>Observe</strong>This one replays every message from offset 0 — including everything sent back in step 4, before this consumer existed. It doesn't touch <code class="mono">order-processors</code>' offsets, rebalancing, or partition assignment at all; it's a completely separate bookkeeping trail in <code class="mono">__consumer_offsets</code>. This is the pub/sub fan-out from the theory section, made concrete: one topic, two groups, two independent read positions.</div>
+
+        <div class="callout">
+          <div class="ctitle">What just happened, mechanically</div>
+          <p>Every rebalance you triggered (steps 5, 6, 7) followed the same protocol: a member joins or leaves → the group coordinator (the broker hosting this group's partition of <code class="mono">__consumer_offsets</code>) detects it → all members briefly pause → partitions get reassigned → consumption resumes. With the default <code class="mono">console-consumer</code>, that's an eager rebalance (everyone pauses, not just the affected partitions) — see the next section for how <code class="mono">CooperativeSticky</code> avoids the full stop-the-world pause in production consumers.</p>
+        </div>
+      </section>
+
+      <!-- ================= CONSUMER GROUPS ================= -->
+      <section class="block" id="groups">
+        <div class="sec-head"><span class="sec-offset">offset:06</span></div>
+        <h2>Consumer groups &amp; rebalancing</h2>
+        <p class="sec-kicker">The mechanism that turns "here's a log" into "here's a horizontally scalable, fault-tolerant worker pool."</p>
+
+        <p>Inside one consumer group, Kafka guarantees each partition is owned by exactly one consumer at a time. This is where your <strong>parallelism ceiling</strong> comes from: a topic with 6 partitions can be usefully consumed by at most 6 active consumers in one group — a 7th sits idle. Fewer consumers than partitions is fine (some consumers just own more than one partition); more consumers than partitions wastes resources.</p>
+
+        <div class="paper-card">
+          <h4>Sizing rule of thumb</h4>
+          <p>Partition count should be ≥ the maximum number of consumer instances you ever expect to run concurrently for that group. Under-provisioning partitions is the most common reason a "scale out the consumers" fix doesn't actually add throughput.</p>
+        </div>
+
+        <h3>What triggers a rebalance</h3>
+        <ul>
+          <li>A consumer joins or leaves the group (deploy, crash, scale event).</li>
+          <li>A consumer misses <code class="chip">max.poll.interval.ms</code> between polls — the group coordinator assumes it's stuck and evicts it, even if the process is technically alive.</li>
+          <li>Partition count on the topic changes.</li>
+        </ul>
+        <p>During a classic (eager) rebalance, <strong>every</strong> consumer in the group stops consuming while partitions are reassigned — a "stop the world" pause. Modern assignors reduce this:</p>
+        <ul>
+          <li><strong>Range / RoundRobin</strong> — original strategies, always eager (full stop-the-world).</li>
+          <li><strong>Sticky</strong> — minimizes partition movement between rebalances, still eager.</li>
+          <li><strong>CooperativeSticky</strong> — incremental: only the specific partitions that need to move are paused/reassigned; everyone else keeps consuming. Preferred default in modern clients.</li>
+        </ul>
+
+        <h3>Avoiding unnecessary rebalances</h3>
+        <p>A rolling deploy that bounces every consumer pod one at a time can trigger a rebalance storm. <strong>Static membership</strong> (<code class="chip">group.instance.id</code>) tells Kafka "this consumer will be back — hold its partition assignment" instead of treating a brief restart as a leave-then-rejoin.</p>
+
+        <div class="interview-tag">
+          <span class="ico">🎯</span>
+          <p><strong>"How would you handle rebalance storms in production?"</strong> — Static membership for planned restarts, <code class="chip">CooperativeSticky</code> assignor to avoid full stop-the-world pauses, and tuning <code class="chip">max.poll.interval.ms</code> high enough that legitimate slow batches don't get mistaken for a dead consumer — while keeping <code class="chip">session.timeout.ms</code> low enough to still detect real failures quickly.</p>
+        </div>
+      </section>
+
+      <!-- ================= DELIVERY SEMANTICS ================= -->
+      <section class="block" id="semantics">
+        <div class="sec-head"><span class="sec-offset">offset:07</span></div>
+        <h2>Delivery semantics — honestly</h2>
+        <p class="sec-kicker">Most candidates say "Kafka supports exactly-once" and stop there. That's the wrong level of the story.</p>
+
+        <table>
+          <tr><th>Guarantee</th><th>How you get it</th><th>What breaks</th></tr>
+          <tr><td><strong>At-most-once</strong></td><td>Commit the offset <em>before</em> processing the record.</td><td>Crash after commit but before processing finishes → record is silently skipped.</td></tr>
+          <tr><td><strong>At-least-once</strong></td><td>Commit the offset <em>after</em> successful processing (the default posture for most manual-commit consumers).</td><td>Crash after processing but before commit → the record gets reprocessed on restart. Your downstream must tolerate duplicates.</td></tr>
+          <tr><td><strong>Exactly-once</strong></td><td>Idempotent producer (dedupes retries) + transactions (atomic multi-partition writes) + <code class="mono">read_committed</code> consumers — <em>or</em>, cheaper in practice: at-least-once delivery plus an idempotent consumer that upserts by a natural key.</td><td>Only holds end-to-end if every hop in the pipeline (including any external side effects like a DB write or an email send) is also idempotent. Kafka transactions guarantee exactly-once <em>within Kafka</em>, not for arbitrary external systems.</td></tr>
+        </table>
+
+        <div class="callout warn">
+          <div class="ctitle">The honest answer for interviews</div>
+          <p>Kafka gives you exactly-once semantics for Kafka-to-Kafka pipelines (e.g. Kafka Streams read-process-write). The moment you write to an external system (a database, an email API, a payment gateway) inside that processing step, true exactly-once requires that external write to be idempotent too — Kafka can't make a non-Kafka side effect atomic with an offset commit for free.</p>
+        </div>
+      </section>
+
+      <!-- ================= EXERCISES ================= -->
+      <section class="block" id="exercises">
+        <div class="sec-head"><span class="sec-offset">offset:08</span></div>
+        <h2>Hands-on exercises</h2>
+        <p class="sec-kicker">All exercises use the running <code class="mono">orders</code> topic example. Difficulty badge = replication factor you'll be reasoning about, not literal RF in every case.</p>
+
+        <div class="ex-card">
+          <div class="ex-head"><h4><span class="ex-num">01</span>First log, first offsets</h4><span class="diff rf1">RF=1 · warm-up</span></div>
+          <div class="ex-body">
+            <p><strong>Objective:</strong> see offsets get assigned in real time and prove they're per-partition, not global.</p>
+            <div class="ex-label">Steps</div>
+            <ol>
+              <li>Bring up the single-broker cluster (Section 04).</li>
+              <li>Create <code class="mono">orders</code> with 3 partitions, RF 1.</li>
+              <li>Open a console producer <em>without</em> a key and send 8–10 short messages.</li>
+              <li>In a second terminal, consume with <code class="mono">--from-beginning --property print.partition=true --property print.offset=true</code>.</li>
+            </ol>
+            <details class="solution">
+              <summary>Show solution</summary>
+              <div class="solution-body">
+                <p>Create the topic:</p>
+                <pre class="term"><code>docker exec -it kafka kafka-topics --bootstrap-server localhost:9092 \
+  --create --topic orders --partitions 3 --replication-factor 1</code></pre>
+                <p>Terminal 1 — producer (no key, just type 8–10 lines, one per Enter):</p>
+                <pre class="term"><code>docker exec -it kafka kafka-console-producer \
+  --bootstrap-server localhost:9092 --topic orders</code></pre>
+                <p>Terminal 2 — consumer with partition/offset visible:</p>
+                <pre class="term"><code>docker exec -it kafka kafka-console-consumer \
+  --bootstrap-server localhost:9092 --topic orders --from-beginning \
+  --property print.partition=true --property print.offset=true</code></pre>
+                <p class="sol-note">Expected: you'll see something like <code class="mono">Partition:0 Offset:0</code>, <code class="mono">Partition:1 Offset:0</code>, <code class="mono">Partition:2 Offset:0</code> — offset 0 shows up three times because it's scoped per partition, not per topic. Kafka doesn't use one global counter because that would force every append across every partition to serialize through a single point — killing the parallelism partitions exist to provide.</p>
+              </div>
+            </details>
+            <div class="reflect"><p>Which offsets repeat across different partitions? Why doesn't Kafka just use one global counter for the whole topic?</p></div>
+          </div>
+        </div>
+
+        <div class="ex-card">
+          <div class="ex-head"><h4><span class="ex-num">02</span>Keys and ordering</h4><span class="diff rf1">RF=1 · warm-up</span></div>
+          <div class="ex-body">
+            <p><strong>Objective:</strong> prove per-key ordering only holds when you actually key your records.</p>
+            <div class="ex-label">Steps</div>
+            <ol>
+              <li>Using the keyed producer (<code class="mono">parse.key=true</code>), send several events for <code class="mono">order-1</code> and <code class="mono">order-2</code> interleaved, e.g. <code class="mono">order-1:created</code>, <code class="mono">order-2:created</code>, <code class="mono">order-1:paid</code>, <code class="mono">order-2:paid</code>.</li>
+              <li>Consume with partition + offset printed. Confirm all <code class="mono">order-1</code> events land on the same partition, in send order.</li>
+              <li>Repeat without keys and observe the distribution change.</li>
+            </ol>
+            <details class="solution">
+              <summary>Show solution</summary>
+              <div class="solution-body">
+                <p>Keyed producer:</p>
+                <pre class="term"><code>docker exec -it kafka kafka-console-producer \
+  --bootstrap-server localhost:9092 --topic orders \
+  --property "parse.key=true" --property "key.separator=:"</code></pre>
+                <p>Type these lines (order matters — send interleaved):</p>
+                <pre class="term"><code>order-1:created
+order-2:created
+order-1:paid
+order-2:paid
+order-1:shipped
+order-2:shipped</code></pre>
+                <p>Consume with partition + offset printed:</p>
+                <pre class="term"><code>docker exec -it kafka kafka-console-consumer \
+  --bootstrap-server localhost:9092 --topic orders --from-beginning \
+  --property print.key=true --property print.partition=true --property print.offset=true</code></pre>
+                <p class="sol-note">Expected: every <code class="mono">order-1</code> record shows the same partition number, and within that partition their offsets appear in the exact order you sent them (created → paid → shipped). <code class="mono">order-2</code> lands on its own (possibly different) partition, same rule. Repeat without <code class="mono">--property parse.key=true</code> and you'll see the sticky partitioner batch several unkeyed records onto one partition before rotating — a different, non-deterministic distribution.</p>
+              </div>
+            </details>
+            <div class="reflect"><p>If you later increase partition count on this topic, what happens to the ordering guarantee for keys that were already hashed to old partitions?</p></div>
+          </div>
+        </div>
+
+        <div class="ex-card">
+          <div class="ex-head"><h4><span class="ex-num">03</span>Consumer group scaling &amp; the idle consumer</h4><span class="diff rf1">RF=1 · core</span></div>
+          <div class="ex-body">
+            <p><strong>Objective:</strong> watch partition assignment change live as you scale a group past its partition count.</p>
+            <div class="ex-label">Steps</div>
+            <ol>
+              <li>Start one consumer in group <code class="mono">order-processors</code> on <code class="mono">orders</code> (3 partitions). Run <code class="mono">--describe --group order-processors</code> — it owns all 3.</li>
+              <li>Start a second consumer in the same group. Re-run describe: partitions split roughly 2/1.</li>
+              <li>Start a third — each consumer now owns exactly one partition.</li>
+              <li>Start a fourth. Describe again.</li>
+            </ol>
+            <details class="solution">
+              <summary>Show solution</summary>
+              <div class="solution-body">
+                <p>Open 4 separate terminals, run this in each one (same group, one at a time so you can describe in between):</p>
+                <pre class="term"><code>docker exec -it kafka kafka-console-consumer \
+  --bootstrap-server localhost:9092 --topic orders \
+  --group order-processors</code></pre>
+                <p>After each new consumer joins, in a 5th terminal:</p>
+                <pre class="term"><code>docker exec -it kafka kafka-consumer-groups \
+  --bootstrap-server localhost:9092 --describe --group order-processors</code></pre>
+                <p class="sol-note">Expected: 1 consumer → owns partitions 0,1,2. 2 consumers → roughly 2/1 split. 3 consumers → 1 partition each. The 4th consumer's row shows up with no <code class="mono">PARTITION</code> assigned (or is simply absent from the partition-owner rows) — it's registered in the group but idle, contributing nothing. In production you wouldn't add partitions just to feed one more idle consumer unless you'd already sized for that headroom — you'd only add partitions if you have a genuine throughput or parallelism need beyond 3; otherwise scale back to 3 consumers and use the 4th elsewhere.</p>
+              </div>
+            </details>
+            <div class="reflect"><p>What does the 4th consumer's row look like in the describe output? What would you actually do about it in production — add partitions, or not?</p></div>
+          </div>
+        </div>
+
+        <div class="ex-card">
+          <div class="ex-head"><h4><span class="ex-num">04</span>Watch lag grow and drain</h4><span class="diff rf1">RF=1 · core</span></div>
+          <div class="ex-body">
+            <p><strong>Objective:</strong> build intuition for what "consumer lag" means operationally.</p>
+            <div class="ex-label">Steps</div>
+            <ol>
+              <li>Start a consumer in group <code class="mono">order-processors</code>, then kill it (Ctrl+C) while leaving the group registered.</li>
+              <li>Keep producing 50–100 messages with the console producer (or a small loop script).</li>
+              <li>Run <code class="mono">--describe --group order-processors</code> repeatedly — watch <code class="mono">LOG-END-OFFSET</code> climb while <code class="mono">CURRENT-OFFSET</code> stands still, growing <code class="mono">LAG</code>.</li>
+              <li>Restart the consumer and watch LAG drain back to 0.</li>
+            </ol>
+            <details class="solution">
+              <summary>Show solution</summary>
+              <div class="solution-body">
+                <p>Start then kill the consumer (Ctrl+C leaves its offset registered in the group):</p>
+                <pre class="term"><code>docker exec -it kafka kafka-console-consumer \
+  --bootstrap-server localhost:9092 --topic orders --group order-processors
+<span class="c"># Ctrl+C after a few seconds</span></code></pre>
+                <p>Produce a burst while it's dead — simplest is pasting many lines into a producer, or loop it:</p>
+                <pre class="term"><code>for i in $(seq 1 80); do echo "msg-$i"; done | docker exec -i kafka \
+  kafka-console-producer --bootstrap-server localhost:9092 --topic orders</code></pre>
+                <p>Watch lag climb:</p>
+                <pre class="term"><code>docker exec -it kafka kafka-consumer-groups \
+  --bootstrap-server localhost:9092 --describe --group order-processors</code></pre>
+                <p>Then restart the same consumer command from step 1 and re-run describe repeatedly — <code class="mono">LAG</code> should fall back to 0 as <code class="mono">CURRENT-OFFSET</code> catches up to <code class="mono">LOG-END-OFFSET</code>.</p>
+                <p class="sol-note">On the reflection question: alert on absolute lag only if your traffic is roughly steady — on a bursty topic, a fixed threshold (e.g. "alert if lag &gt; 10,000") either fires constantly during normal bursts or is set so high it misses a genuinely stuck consumer during a quiet period. Lag growth rate, or lag measured in time-to-drain (lag ÷ current consume rate), adapts to the traffic shape instead of assuming it's constant.</p>
+              </div>
+            </details>
+            <div class="reflect"><p>In a real system, what would you alert on — absolute lag, or lag growth rate? Why might a fixed lag threshold be wrong for a topic with bursty traffic?</p></div>
+          </div>
+        </div>
+
+        <div class="ex-card">
+          <div class="ex-head"><h4><span class="ex-num">05</span>Kill the leader — replication &amp; failover</h4><span class="diff rf3">RF=3 · advanced</span></div>
+          <div class="ex-body">
+            <p><strong>Objective:</strong> watch leader election happen for real, not just read about it.</p>
+            <div class="ex-label">Steps</div>
+            <ol>
+              <li>Bring up the 3-broker cluster (Section 04).</li>
+              <li>Create <code class="mono">orders</code> with 3 partitions, replication factor 3.</li>
+              <li>Run <code class="mono">--describe --topic orders</code> — note which broker leads partition 0.</li>
+              <li>Keep a console producer/consumer running against that topic in separate terminals so you can see live impact.</li>
+              <li>Run <code class="mono">docker stop kafka-&lt;leader-id&gt;</code> for the broker leading partition 0.</li>
+              <li>Immediately re-run describe — a new leader should already be elected from the ISR.</li>
+            </ol>
+            <details class="solution">
+              <summary>Show solution</summary>
+              <div class="solution-body">
+                <p>Bring up the cluster and create the topic:</p>
+                <pre class="term"><code>docker compose -f docker-compose-cluster.yml up -d
+docker exec -it kafka-1 kafka-topics --bootstrap-server localhost:9092 \
+  --create --topic orders --partitions 3 --replication-factor 3</code></pre>
+                <p>Check who's leading partition 0:</p>
+                <pre class="term"><code>docker exec -it kafka-1 kafka-topics --bootstrap-server localhost:9092 \
+  --describe --topic orders</code></pre>
+                <p>Note the <code class="mono">Leader:</code> broker id in the partition 0 row, e.g. <code class="mono">Leader: 2</code>. In two more terminals, keep traffic flowing:</p>
+                <pre class="term"><code><span class="c"># producer</span>
+docker exec -it kafka-1 kafka-console-producer --bootstrap-server localhost:9092,localhost:9094,localhost:9095 --topic orders
+<span class="c"># consumer</span>
+docker exec -it kafka-1 kafka-console-consumer --bootstrap-server localhost:9092,localhost:9094,localhost:9095 --topic orders</code></pre>
+                <p>Kill the leader (substitute the container matching the leader id you found, e.g. <code class="mono">kafka-2</code>):</p>
+                <pre class="term"><code>docker stop kafka-2</code></pre>
+                <p>Re-describe from a still-running broker:</p>
+                <pre class="term"><code>docker exec -it kafka-1 kafka-topics --bootstrap-server localhost:9092 \
+  --describe --topic orders</code></pre>
+                <p class="sol-note">Expected: <code class="mono">Leader:</code> is now one of the other two broker ids, and <code class="mono">Isr:</code> shrinks by one. Producer/consumer terminals typically show a brief pause or a couple of retriable errors logged internally, then resume on their own — you shouldn't need to restart them. The new leader is chosen by the controller from whichever replicas were still in the ISR at the moment of failure — an out-of-sync replica is not eligible, which is exactly the "unclean leader election" trade-off from the theory section.</p>
+              </div>
+            </details>
+            <div class="reflect"><p>Did your producer/consumer terminals hiccup, error, or just briefly pause? What determines which of the two remaining replicas becomes the new leader?</p></div>
+          </div>
+        </div>
+
+        <div class="ex-card">
+          <div class="ex-head"><h4><span class="ex-num">06</span>acks=0 vs acks=all — engineer some data loss</h4><span class="diff rf3">RF=3 · advanced</span></div>
+          <div class="ex-body">
+            <p><strong>Objective:</strong> feel the acks trade-off instead of just quoting it.</p>
+            <div class="ex-label">Steps</div>
+            <ol>
+              <li>On the 3-broker cluster, create a topic with RF 3.</li>
+              <li>Produce a burst of numbered messages (<code class="mono">msg-1</code> … <code class="mono">msg-500</code>) with <code class="mono">--producer-property acks=0</code>, and immediately <code class="mono">docker stop</code> the leader broker mid-burst.</li>
+              <li>Count how many messages actually made it (consume from beginning, from a fresh group).</li>
+              <li>Restart the cluster fresh, repeat the exact same test with <code class="mono">acks=all</code> and <code class="mono">min.insync.replicas=2</code>.</li>
+            </ol>
+            <details class="solution">
+              <summary>Show solution</summary>
+              <div class="solution-body">
+                <p>Create the topic (RF 3, min ISR set for the acks=all run):</p>
+                <pre class="term"><code>docker exec -it kafka-1 kafka-topics --bootstrap-server localhost:9092 \
+  --create --topic durability-test --partitions 1 --replication-factor 3</code></pre>
+                <p>Run A — acks=0, kill the leader mid-burst (open two terminals, run these close together):</p>
+                <pre class="term"><code><span class="c"># terminal 1</span>
+for i in $(seq 1 500); do echo "msg-$i"; done | docker exec -i kafka-1 \
+  kafka-console-producer --bootstrap-server localhost:9092 --topic durability-test \
+  --producer-property acks=0
+<span class="c"># terminal 2, fired partway through terminal 1's loop</span>
+docker stop kafka-&lt;leader-id&gt;</code></pre>
+                <p>Count what survived, from a fresh group so nothing's cached:</p>
+                <pre class="term"><code>docker exec -it kafka-1 kafka-console-consumer \
+  --bootstrap-server localhost:9092 --topic durability-test --from-beginning \
+  --timeout-ms 5000 | wc -l</code></pre>
+                <p>Run B — tear down, bring the cluster back up fresh, recreate the topic, repeat with:</p>
+                <pre class="term"><code>--producer-property acks=all --producer-property min.insync.replicas=2</code></pre>
+                <p class="sol-note">Expected: run A loses some tail of messages that were still sitting in the leader's page cache (never replicated) when it died — count comes in under 500. Run B's count should land at exactly 500, because the producer blocked on each batch until 2 ISR members had it. The cost you're measuring is producer-side latency/throughput — time the whole loop with <code class="mono">time</code> on both runs and compare; acks=all will visibly take longer per batch.</p>
+              </div>
+            </details>
+            <div class="reflect"><p>Was the message count different between the two runs? What did <code class="mono">acks=all</code> cost you in exchange for that difference — measure it.</p></div>
+          </div>
+        </div>
+
+        <div class="ex-card">
+          <div class="ex-head"><h4><span class="ex-num">07</span>Idempotent producer vs. duplicate retries</h4><span class="diff rf2">RF=2 · advanced</span></div>
+          <div class="ex-body">
+            <p><strong>Objective:</strong> see broker-side dedup happen (or not) under retry conditions.</p>
+            <div class="ex-label">Steps</div>
+            <ol>
+              <li>Produce a batch <em>without</em> idempotence enabled, using a script that retries on transient errors — briefly restart the broker mid-send to force retries.</li>
+              <li>Count exact-match duplicate values on the consumer side.</li>
+              <li>Repeat with <code class="mono">enable.idempotence=true</code> and compare duplicate counts.</li>
+            </ol>
+            <details class="solution">
+              <summary>Show solution</summary>
+              <div class="solution-body">
+                <p>Create a small topic (RF 2 on the cluster from Section 04's 3-broker setup):</p>
+                <pre class="term"><code>docker exec -it kafka-1 kafka-topics --bootstrap-server localhost:9092 \
+  --create --topic idem-test --partitions 1 --replication-factor 2</code></pre>
+                <p>Run A — no idempotence, force retries by restarting the leader broker mid-send:</p>
+                <pre class="term"><code><span class="c"># terminal 1 — deliberately allow retries without idempotence</span>
+for i in $(seq 1 200); do echo "evt-$i"; done | docker exec -i kafka-1 \
+  kafka-console-producer --bootstrap-server localhost:9092 --topic idem-test \
+  --producer-property enable.idempotence=false --producer-property retries=10 \
+  --producer-property acks=all
+<span class="c"># terminal 2, mid-burst</span>
+docker restart kafka-&lt;leader-id&gt;</code></pre>
+                <p>Count exact-duplicate values:</p>
+                <pre class="term"><code>docker exec -it kafka-1 kafka-console-consumer \
+  --bootstrap-server localhost:9092 --topic idem-test --from-beginning \
+  --timeout-ms 5000 | sort | uniq -c | sort -rn | head</code></pre>
+                <p>Run B — same steps, but with <code class="mono">--producer-property enable.idempotence=true</code>, fresh topic.</p>
+                <p class="sol-note">Expected: run A's <code class="mono">uniq -c</code> output shows some lines with count &gt;1 — the same <code class="mono">evt-N</code> appended twice because a retry fired after the original send had actually already succeeded. Run B should show every value with count exactly 1. On the reflection question: no — idempotence dedupes at the (producer-ID, partition, sequence-number) level, which only catches the broker seeing literally the same retried bytes twice. If your application code calls <code class="mono">producer.send()</code> a second time for the same logical event (e.g. a retry at the application layer, not the Kafka client layer), that's a brand new send with a new sequence number — indistinguishable from a genuinely new event as far as the idempotent producer is concerned.</p>
+              </div>
+            </details>
+            <div class="reflect"><p>Idempotent producers dedupe retries — but do they protect you if your <em>application</em> calls <code class="mono">send()</code> twice for the same logical event? Why or why not?</p></div>
+          </div>
+        </div>
+
+        <div class="ex-card">
+          <div class="ex-head"><h4><span class="ex-num">08</span>Whiteboard: design an order pipeline</h4><span class="diff rf3">RF=3 · design</span></div>
+          <div class="ex-body">
+            <p><strong>Objective:</strong> the interview-format exercise — no code, a short written design.</p>
+            <div class="ex-label">Prompt</div>
+            <p>Design the Kafka layer for an e-commerce order pipeline. <code class="mono">order-service</code> emits <code class="mono">order.created</code>, <code class="mono">order.paid</code>, <code class="mono">order.shipped</code>, <code class="mono">order.cancelled</code>. Downstream: inventory (must never double-decrement stock), notifications (best-effort, can lose the odd message), and a data warehouse (needs full replay capability for backfills).</p>
+            <div class="ex-label">Answer at minimum</div>
+            <ul>
+              <li>Topic(s) and partition key — one topic per event type, or one topic with an event-type field? Justify it.</li>
+              <li>Partition count and what it's sized against.</li>
+              <li>Consumer group layout for the three downstream systems.</li>
+              <li>Which system needs exactly-once-ish guarantees, and how you'd actually build that (idempotent upsert key vs. Kafka transactions).</li>
+              <li>Retention policy per topic and why.</li>
+            </ul>
+            <details class="solution">
+              <summary>Show a model answer</summary>
+              <div class="solution-body">
+                <p><strong>Topic(s) and key:</strong> one topic, <code class="mono">order-events</code>, with an <code class="mono">event_type</code> field in the payload rather than four separate topics. Keeping every event for an order in one topic, keyed by <code class="mono">order_id</code>, guarantees the full lifecycle (created → paid → shipped → cancelled) is strictly ordered on one partition — split across topics and you'd need cross-topic coordination to reconstruct order-of-events, which defeats the purpose. Split into separate topics only if downstream systems need to subscribe to just one event type without filtering — not the case here, since all three consumers care about the full lifecycle.</p>
+                <p><strong>Partitions:</strong> size for peak produce throughput first (say 12, if that comfortably covers projected peak order volume with headroom), then check it's ≥ the largest consumer group's max instance count. <code class="mono">order_id</code> as key keeps per-order ordering regardless of count.</p>
+                <p><strong>Consumer groups:</strong> three independent groups — <code class="mono">inventory-service</code>, <code class="mono">notification-service</code>, <code class="mono">warehouse-sink</code> — each with its own offsets, scaled independently (inventory needs low lag, warehouse can run as a periodic batch job well behind).</p>
+                <p><strong>Exactly-once-ish:</strong> inventory is the one that actually needs it (must never double-decrement stock). The practical fix is not Kafka transactions here — it's an idempotent consumer: inventory-service upserts stock adjustments keyed by <code class="mono">order_id + event_type</code> (e.g. "have I already decremented stock for order-123's `order.paid` event?" via a dedup table or a unique constraint) so a reprocessed message after a crash-before-commit is a no-op. Notifications stay best-effort with no dedup — an occasional double-send is an acceptable cost, not worth the complexity.</p>
+                <p><strong>Retention:</strong> time-based retention (e.g. 7 days) is enough for inventory and notifications, which only ever need to catch up on recent lag. The warehouse sink's "full replay for backfills" requirement is the one that actually needs longer retention or a separate long-retention topic — either bump <code class="mono">order-events</code>' retention to cover your backfill window, or have the warehouse consumer also feed from a compacted or long-retention archival copy rather than stretching the primary topic's retention for everyone.</p>
+                <p class="sol-note">There's no single "correct" answer here — the value is in defending each choice under pushback (e.g. "why not RF for exactly-once instead of an idempotent consumer?", "why not split by event type?"). If your reasoning matches the trade-offs above even with different specific numbers, you're in good shape.</p>
+              </div>
+            </details>
+            <div class="reflect"><p>This is the exercise most likely to show up, reworded, in an actual system design interview. Write the answer as if defending it to a skeptical panel.</p></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= INTERVIEW CORNER ================= -->
+      <section class="block" id="interview">
+        <div class="sec-head"><span class="sec-offset">offset:09</span></div>
+        <h2>Interview corner</h2>
+        <p class="sec-kicker">Rapid-fire questions worth being able to answer in under 60 seconds each, plus the NFRs strong candidates raise unprompted.</p>
+
+        <h3>Rapid fire</h3>
+        <ul>
+          <li><strong>Why partitions instead of just more topics?</strong> Partitions are the unit of parallelism <em>and</em> ordering within one logical stream — splitting into separate topics loses the "one topic, many independent readers" model and forces consumers to know about N topics instead of one.</li>
+          <li><strong>What happens when the broker holding a partition's leader dies?</strong> The controller (KRaft quorum) detects it via missed heartbeats, elects a new leader from the ISR, and clients refresh their metadata and reconnect to the new leader — typically sub-second to a few seconds of unavailability for that partition only.</li>
+          <li><strong>Kafka vs. RabbitMQ vs. SQS — when would you choose which?</strong> Kafka: high-throughput event streams, need replay, many independent consumers, ordering per key. RabbitMQ/AMQP: complex routing topologies, per-message priority/TTL, work-queue semantics where a message truly disappears once handled. SQS: fully managed, simple decoupling, don't want to operate infrastructure, don't need replay or strict ordering at scale.</li>
+          <li><strong>What does <code class="mono">min.insync.replicas</code> actually do?</strong> With <code class="mono">acks=all</code>, it's the minimum number of ISR members (including the leader) that must ack before a write succeeds. Set it to 2 with RF 3 and you can tolerate one broker failure without either losing durability or blocking writes.</li>
+          <li><strong>How do you reprocess the last 24 hours of a topic without affecting live consumers?</strong> Start a new consumer group, seek/reset it to a timestamp offset (<code class="mono">--to-datetime</code>), and let it run independently — the live group's offsets are untouched.</li>
+        </ul>
+
+        <h3>NFRs to raise before being asked</h3>
+        <div class="qr-grid">
+          <div class="qr-card"><div class="qk">Throughput</div><div class="qv">Partition count, batching/compression, expected peak vs. sustained rate.</div></div>
+          <div class="qr-card"><div class="qk">Durability</div><div class="qv">Replication factor, acks, min.insync.replicas — state the trade-off explicitly.</div></div>
+          <div class="qr-card"><div class="qk">Ordering</div><div class="qv">What must be ordered (per key), what doesn't need to be.</div></div>
+          <div class="qr-card"><div class="qk">Scalability</div><div class="qv">Can you add partitions/brokers later without a redesign? What breaks if you do?</div></div>
+          <div class="qr-card"><div class="qk">Fault tolerance</div><div class="qv">What survives a single broker loss? A single AZ loss?</div></div>
+          <div class="qr-card"><div class="qk">Observability</div><div class="qv">Consumer lag, ISR shrink events, under-replicated partitions — what pages someone.</div></div>
+        </div>
+      </section>
+
+      <!-- ================= CHEAT SHEET ================= -->
+      <section class="block" id="cheatsheet">
+        <div class="sec-head"><span class="sec-offset">offset:10</span></div>
+        <h2>Quick reference</h2>
+        <p class="sec-kicker">The one-screen version to glance at mid-cohort-session.</p>
+
+        <div class="qr-grid">
+          <div class="qr-card"><div class="qk">Partition</div><div class="qv">Ordered, append-only log — unit of parallelism &amp; ordering.</div></div>
+          <div class="qr-card"><div class="qk">Offset</div><div class="qv">Per-partition position, not global.</div></div>
+          <div class="qr-card"><div class="qk">Consumer group</div><div class="qv">One partition → one consumer, per group, at a time.</div></div>
+          <div class="qr-card"><div class="qk">ISR</div><div class="qv">Followers caught up enough to be leader-election eligible.</div></div>
+          <div class="qr-card"><div class="qk">acks=all + min.insync.replicas</div><div class="qv">Your durability dial — set both together.</div></div>
+          <div class="qr-card"><div class="qk">Idempotent producer</div><div class="qv">Broker-side dedup of retried sends via PID + sequence number.</div></div>
+          <div class="qr-card"><div class="qk">Compaction</div><div class="qv">Keeps latest value per key forever — a changelog, not an event log.</div></div>
+          <div class="qr-card"><div class="qk">KRaft</div><div class="qv">Built-in Raft quorum for metadata — no external Zookeeper.</div></div>
+        </div>
+
+        <div class="term-label">tear everything down</div>
+        <pre class="term"><code>docker compose down -v
+docker compose -f docker-compose-cluster.yml down -v</code></pre>
+      </section>
+
+    </div>
+
+    <footer>orders-0 · offset 5 · end of log — for now</footer>
+  </main>
+</div>
+
+<script>
+  // Scrollspy: highlight the active nav item as sections pass the top of viewport.
+  const links = Array.from(document.querySelectorAll('.nav-link'));
+  const sections = links.map(l => document.querySelector(l.getAttribute('href')));
+  function onScroll(){
+    let idx = 0;
+    const y = window.scrollY + 120;
+    sections.forEach((sec, i) => { if (sec && sec.offsetTop <= y) idx = i; });
+    links.forEach((l, i) => l.classList.toggle('active', i === idx));
+  }
+  document.addEventListener('scroll', onScroll, {passive:true});
+  onScroll();
+</script>
+</body>
+</html>

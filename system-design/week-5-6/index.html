@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week 5-6 — Messaging, Streaming & Payments — Class Notes</title>
+<link rel="stylesheet" href="../../assets/style.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <a href="../../index.html" class="sidebar-brand">📘 Class Notes</a>
+    <div class="sidebar-tagline">System Design & Backend Engineering</div>
+    <nav>
+      <div class="week-block">
+        <div class="week-title">Course</div>
+        <ul>
+          <li><a href="../../index.html">Home</a></li>
+          <li><a href="../index.html">System Design — All Weeks</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 1 — HLD Foundations</div>
+        <ul>
+          <li><a href="../week-1/01-hld-approach.html">Approaching an HLD Interview</a></li>
+          <li><a href="../week-1/02-cap-theorem.html">CAP Theorem & Consistency</a></li>
+          <li><a href="../week-1/03-sql-vs-nosql.html">SQL vs NoSQL</a></li>
+          <li><a href="../week-1/04-estimation.html">Back-of-Envelope Estimation</a></li>
+          <li><a href="../week-1/05-api-data-model.html">API Design & Data Model</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 2 — Core Infra Building Blocks</div>
+        <ul>
+          <li><a href="../week-2/01-networking-load-balancers.html">Load Balancers & Networking</a></li>
+          <li><a href="../week-2/02-cdn-dns-reverse-proxy.html">CDN, DNS & Reverse Proxies</a></li>
+          <li><a href="../week-2/03-caching-strategies.html">Caching Strategies</a></li>
+          <li><a href="../week-2/04-redis-deep-dive.html">Redis Deep Dive</a></li>
+          <li><a href="../week-2/05-partitioning-sharding.html">Partitioning & Sharding</a></li>
+          <li><a href="../week-2/06-leader-follower-election.html">Leader-Follower & Election</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 3-4 &mdash; Booking System Deep Dive</div>
+        <ul>
+          <li><a href="../Week3-4/index.html">Overview &amp; Reference Index</a></li>
+          <li><a href="../Week3-4/HLD%20%E2%80%94%20Movie%20_%20Event%20Ticketing%20Platform.html">Ticketing Platform HLD (raw)</a></li>
+          <li><a href="../Week3-4/redis_seat_booking_demo.html">Redis Seat Booking Demo</a></li>
+          <li><a href="../Week3-4/REDIS_ELASTIC_SEARCH.html">Redis + Elasticsearch Reference</a></li>
+          <li><a href="../Week3-4/api_patterns_demo_1.html">HTTP/REST/GraphQL/WS/Webhook Demo</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Week 5-6 &mdash; Messaging, Streaming &amp; Payments</div>
+        <ul>
+          <li><a href="index.html" class="active">Overview &amp; Reference Index</a></li>
+          <li><a href="kafka-deep-dive.html">Kafka &mdash; Theory &amp; Failure Modes</a></li>
+          <li><a href="whatsapp-message-flow.html">WhatsApp Message Flow (animation)</a></li>
+        </ul>
+      </div>
+      <div class="week-block">
+        <div class="week-title">Practice Questions</div>
+        <ul>
+          <li><a href="../questions/index.html">All Questions</a></li>
+          <li><a href="../questions/url-shortener.html">URL Shortener</a></li>
+          <li><a href="../questions/movie-ticketing-platform.html">Movie / Event Ticketing</a></li>
+          <li><a href="../questions/notification-system.html">Notification System</a></li>
+          <li><a href="../questions/whatsapp-messaging.html">WhatsApp &mdash; Messaging at Scale</a></li>
+          <li><a href="../questions/payment-service.html">Payment Service</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="sidebar-footer">Updated as classes progress.</div>
+  </aside>
+
+  <main class="content">
+    <div class="content-inner">
+      <div class="breadcrumb"><a href="../../index.html">Home</a> / <a href="../index.html">System Design</a> / Week 5-6</div>
+      <div class="home-hero">
+        <h1>Week 5-6 — Messaging, Streaming & Payments</h1>
+        <p>The sessions on real-time messaging and money movement. Kafka gets a from-first-principles deep dive as the streaming backbone; the WhatsApp message flow is broken down as an interactive animation. The polished, interview-ready write-ups built on this material live in <a href="../questions/whatsapp-messaging.html">WhatsApp — Messaging at Scale</a> and <a href="../questions/payment-service.html">Payment Service</a> under Practice Questions.</p>
+      </div>
+
+      <ul class="topic-list">
+        <li><a href="kafka-deep-dive.html"><span><span class="topic-title">Kafka, In Depth — Theory, Failure Modes &amp; Exercises</span><span class="topic-desc">Kafka as a distributed, append-only commit log — partitioning, replication &amp; ISR, consumer groups and rebalancing, at-most / at-least / exactly-once semantics, Docker + KRaft setup, a full CLI reference, and hands-on exercises that make you break the mental model on purpose</span></span><span class="arrow">→</span></a></li>
+        <li><a href="whatsapp-message-flow.html"><span><span class="topic-title">WhatsApp Message Flow — Interactive Walkthrough</span><span class="topic-desc">Click or play through the real send → persist → publish → deliver path with live Redis connection-registry state and pub/sub events shown as they happen — covering online delivery across gateways, the persist-only offline path, and group fan-out over shared gateways</span></span><span class="arrow">→</span></a></li>
+      </ul>
+
+      <div class="callout" style="margin-top:24px;">
+        <div class="callout-title">How this fits together</div>
+        The Kafka note is the transport-layer background; the WhatsApp animation shows one concrete application of a hash-partitioned pub/sub bus plus a connection registry. Read the deep dives here first, then work the two Practice Questions cold before comparing.
+      </div>
+    </div>
+  </main>
+</div>
+</body>
+</html>

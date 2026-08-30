@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>HLD: WhatsApp — Messaging at Scale</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --border:#2a2f3a;
+    --text:#e8eaed; --muted:#9aa4b2; --accent:#25d366; --accent2:#34b7f1;
+    --bad:#e5534b; --good:#d4a72c; --great:#25d366;
+    --code-bg:#11141a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.6; font-size:16px;
+  }
+  .wrap{max-width:960px; margin:0 auto; padding:48px 24px 120px;}
+  h1{font-size:2.2rem; margin-bottom:4px; letter-spacing:-0.02em;}
+  .subtitle{color:var(--muted); font-size:1.05rem; margin-bottom:36px;}
+  h2{
+    font-size:1.5rem; margin-top:56px; margin-bottom:16px; padding-bottom:10px;
+    border-bottom:1px solid var(--border); color:#fff; letter-spacing:-0.01em;
+  }
+  h2 .qmark{color:var(--accent2);}
+  h3{font-size:1.15rem; margin-top:30px; margin-bottom:10px; color:#fff;}
+  h4{font-size:1rem; margin-top:20px; margin-bottom:8px; color:var(--muted); text-transform:uppercase; letter-spacing:0.04em; font-size:0.82rem;}
+  p{margin:12px 0; color:#c9cdd4;}
+  .lead{font-size:1.05rem; color:#dfe2e7;}
+  a{color:var(--accent2);}
+  strong{color:#fff;}
+  code{
+    background:var(--code-bg); border:1px solid var(--border); border-radius:4px;
+    padding:1px 6px; font-family:'SF Mono',Consolas,Monaco,monospace; font-size:0.88em; color:#8fd6a8;
+  }
+  pre{
+    background:var(--code-bg); border:1px solid var(--border); border-radius:8px;
+    padding:16px; overflow-x:auto; font-family:'SF Mono',Consolas,Monaco,monospace; font-size:0.85rem;
+    line-height:1.55; color:#c9cdd4;
+  }
+  ul,ol{margin:10px 0; padding-left:22px; color:#c9cdd4;}
+  li{margin:6px 0;}
+  .callout{
+    border-left:3px solid var(--accent2); background:var(--panel);
+    padding:14px 18px; border-radius:0 8px 8px 0; margin:18px 0;
+  }
+  .callout.scope{border-left-color:var(--muted);}
+  .callout.warn{border-left-color:#e5534b;}
+  .callout.edge{border-left-color:#d4a72c;}
+  .callout-title{font-weight:600; color:#fff; margin-bottom:4px; font-size:0.92rem;}
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:20px 22px; margin:18px 0;
+  }
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+  @media(max-width:720px){.grid2{grid-template-columns:1fr;}}
+  table{width:100%; border-collapse:collapse; margin:16px 0; font-size:0.92rem;}
+  th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--border);}
+  th{color:var(--muted); font-weight:600; text-transform:uppercase; font-size:0.75rem; letter-spacing:0.03em;}
+  td{color:#c9cdd4;}
+
+  /* Decision card styling: Bad -> Good -> Great */
+  .decision{margin:24px 0;}
+  .decision-title{font-size:1.05rem; font-weight:700; color:#fff; margin-bottom:14px;}
+  .tier{
+    border-radius:10px; padding:16px 20px; margin:12px 0; border:1px solid var(--border);
+    background:var(--panel2);
+  }
+  .tier-bad{border-left:4px solid var(--bad);}
+  .tier-good{border-left:4px solid var(--good);}
+  .tier-great{border-left:4px solid var(--great);}
+  .tier-label{
+    display:inline-block; font-size:0.72rem; font-weight:700; letter-spacing:0.06em;
+    padding:2px 10px; border-radius:20px; margin-bottom:10px; text-transform:uppercase;
+  }
+  .tier-bad .tier-label{background:rgba(229,83,75,0.15); color:#f28b84;}
+  .tier-good .tier-label{background:rgba(212,167,44,0.15); color:#e6c25c;}
+  .tier-great .tier-label{background:rgba(37,211,102,0.15); color:#5fe08a;}
+  .tier h5{margin:0 0 8px 0; font-size:0.98rem; color:#fff;}
+  .tier-sub{font-size:0.78rem; color:var(--muted); font-weight:600; text-transform:uppercase; margin-top:12px; margin-bottom:4px; letter-spacing:0.03em;}
+
+  /* Rubric */
+  .rubric-level{
+    border:1px solid var(--border); border-radius:10px; padding:18px 22px; margin:16px 0;
+    background:var(--panel);
+  }
+  .rubric-level h4{margin-top:0;}
+  .rubric-level.mid{border-top:3px solid #6b7280;}
+  .rubric-level.senior{border-top:3px solid var(--accent2);}
+  .rubric-level.staff{border-top:3px solid var(--accent);}
+
+  svg{max-width:100%; height:auto; display:block; margin:0 auto;}
+  .diagram-wrap{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:20px; margin:18px 0; overflow-x:auto;
+  }
+  .diagram-caption{text-align:center; color:var(--muted); font-size:0.85rem; margin-top:10px; font-style:italic;}
+
+  .toc{background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:20px 24px; margin:24px 0;}
+  .toc-title{font-weight:700; color:#fff; margin-bottom:10px;}
+  .toc ol{margin:0; padding-left:20px;}
+  .toc a{text-decoration:none; color:#c9cdd4;}
+  .toc a:hover{color:var(--accent2);}
+
+  .badge-row{display:flex; gap:8px; flex-wrap:wrap; margin:10px 0;}
+  .badge{
+    background:var(--panel2); border:1px solid var(--border); border-radius:20px;
+    padding:4px 12px; font-size:0.78rem; color:var(--muted);
+  }
+
+  .footer-note{margin-top:60px; padding-top:20px; border-top:1px solid var(--border); color:var(--muted); font-size:0.85rem;}
+
+  .weak{color:#f28b84; font-weight:600;}
+  .strong-answer{color:#5fe08a; font-weight:600;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<h1>Designing WhatsApp</h1>
+<div class="subtitle">A staff+ level walkthrough: real-time 1:1 &amp; group messaging, delivery guarantees, offline handling, and cross-server connection routing at billions-of-messages-a-day scale.</div>
+
+<div class="toc">
+  <div class="toc-title">Contents</div>
+  <ol>
+    <li><a href="#requirements">What are we actually building?</a></li>
+    <li><a href="#v1">How do two online users exchange a message?</a></li>
+    <li><a href="#v2">What happens when the receiver is offline?</a></li>
+    <li><a href="#v3">How do we scale past one WebSocket server?</a></li>
+    <li><a href="#v4">How do we handle group chats without O(N) writes on the sender?</a></li>
+    <li><a href="#decisions">Key decisions, narrated</a></li>
+    <li><a href="#deepdives">Deep dives</a></li>
+    <li><a href="#edgecases">Edge cases</a></li>
+    <li><a href="#rubric">Interview rubric</a></li>
+  </ol>
+</div>
+
+<h2 id="requirements"><span class="qmark">Q:</span> What are we actually building?</h2>
+<p class="lead">"Design WhatsApp" is really three coupled problems wearing one trench coat: a <strong>real-time delivery system</strong> (get bytes from A to B in milliseconds while both are online), a <strong>durable mailbox system</strong> (don't lose anything if B isn't online), and a <strong>fan-out system</strong> (groups, up to 1024 members, all need the same message). Say this out loud early — it signals you're not going to conflate "chat app" with "just a pub/sub problem."</p>
+
+<h3>Functional requirements</h3>
+<ul>
+  <li>Send/receive 1:1 text messages in near real-time (target: &lt;100ms end-to-end when both parties are online and well-connected)</li>
+  <li>Group messaging (up to ~1024 members per group)</li>
+  <li>Delivery status: <strong>sent (✓) → delivered (✓✓) → read (✓✓ blue)</strong></li>
+  <li>Messages persist and deliver even if the receiver is offline, asleep, or on a plane for a week</li>
+  <li>Multi-device support (same account on phone + web + desktop, all in sync)</li>
+  <li>Media messages (images, video, voice notes) — sent as attachments, not inline blobs</li>
+  <li>Online/last-seen presence indicators</li>
+  <li>Typing indicators</li>
+</ul>
+
+<h3>Non-functional requirements</h3>
+<ul>
+  <li><strong>Availability &gt; strict consistency</strong> for message delivery — a duplicate delivered message is annoying; a silently dropped one is a trust-breaking bug</li>
+  <li><strong>At-least-once delivery</strong> with client-side de-duplication (not exactly-once — we'll justify this)</li>
+  <li><strong>Ordering</strong> matters within a single chat/conversation, not globally across chats</li>
+  <li>Low latency for online users; bounded, reliable eventual delivery for offline users</li>
+  <li>End-to-end encryption (we'll scope the crypto handshake out, but the architecture must accommodate opaque ciphertext payloads server-side)</li>
+  <li>Massive scale: ~2–3B users, ~100B+ messages/day</li>
+</ul>
+
+<div class="callout scope">
+  <div class="callout-title">Below the line (explicitly out of scope)</div>
+  <ul style="margin-bottom:0;">
+    <li>The actual E2E encryption key-exchange protocol (Signal Protocol / X3DH) — we'll treat message bodies as opaque encrypted blobs the server routes but never reads</li>
+    <li>Voice/video calling infrastructure (separate WebRTC-based system, different problem)</li>
+    <li>Status/Stories feature (that's closer to the Instagram feed problem)</li>
+    <li>Payments (WhatsApp Pay)</li>
+    <li>Spam/abuse detection pipelines</li>
+    <li>Media storage/CDN internals in depth — we'll touch it but the interesting parts of this interview are messaging semantics, not blob storage (that's a solved problem, same as S3-backed uploads in other systems)</li>
+  </ul>
+</div>
+
+<div class="callout">
+  <div class="callout-title">The single hardest constraint to keep saying out loud</div>
+  <p style="margin-bottom:0;">Every design decision in this system gets stress-tested against one question: <strong>"what happens if the receiver isn't connected right now?"</strong> A chat app that only works when both people are online isn't a chat app, it's a walkie-talkie. Offline handling isn't a deep dive bolted onto the design — it's the design. We'll build with that constraint present from the very first iteration.</p>
+</div>
+
+<h2 id="v1"><span class="qmark">Q:</span> How do two online users exchange a message, at the simplest possible level?</h2>
+<p class="lead">Strip away scale for a second. Alice and Bob are both online, connected to the <em>same</em> server. What transport do we even use?</p>
+
+<h3>Why not HTTP polling?</h3>
+<p><span class="weak">The weak answer</span> jumps straight to "we use WebSockets" without justifying it. <span class="strong-answer">The strong answer</span> walks through why polling fails first:</p>
+<ul>
+  <li><strong>Short polling</strong> (client asks "any new messages?" every N seconds) — either N is small and you're DDoSing your own servers with mostly-empty responses, or N is large and messages sit for seconds before delivery. Neither is acceptable for a chat app.</li>
+  <li><strong>Long polling</strong> (server holds the request open until a message arrives or timeout) — better, but you're still paying full HTTP header overhead per message, reopening connections constantly, and it's fundamentally a hack around HTTP being request/response.</li>
+  <li><strong>WebSockets</strong> — a single persistent, full-duplex TCP connection. Server can push to the client the instant a message arrives, with no polling overhead. This is the only sane choice for a system where median message latency needs to be double-digit milliseconds.</li>
+</ul>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 700 260" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow1" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#34b7f1"/></marker>
+  </defs>
+  <rect x="30" y="90" width="110" height="60" rx="10" fill="#1d212b" stroke="#2a2f3a"/>
+  <text x="85" y="125" text-anchor="middle" fill="#fff" font-size="14" font-family="sans-serif">Alice</text>
+
+  <rect x="295" y="80" width="140" height="80" rx="10" fill="#171a21" stroke="#34b7f1" stroke-width="1.5"/>
+  <text x="365" y="115" text-anchor="middle" fill="#fff" font-size="13" font-family="sans-serif">Chat Server</text>
+  <text x="365" y="135" text-anchor="middle" fill="#9aa4b2" font-size="11" font-family="sans-serif">(WebSocket conns)</text>
+
+  <rect x="560" y="90" width="110" height="60" rx="10" fill="#1d212b" stroke="#2a2f3a"/>
+  <text x="615" y="125" text-anchor="middle" fill="#fff" font-size="14" font-family="sans-serif">Bob</text>
+
+  <line x1="140" y1="105" x2="290" y2="105" stroke="#34b7f1" stroke-width="2" marker-end="url(#arrow1)"/>
+  <text x="215" y="95" text-anchor="middle" fill="#9aa4b2" font-size="11" font-family="sans-serif">1. send(msg)</text>
+
+  <line x1="435" y1="130" x2="555" y2="130" stroke="#25d366" stroke-width="2" marker-end="url(#arrow1)"/>
+  <text x="495" y="120" text-anchor="middle" fill="#9aa4b2" font-size="11" font-family="sans-serif">2. push(msg)</text>
+
+  <line x1="290" y1="145" x2="140" y2="145" stroke="#d4a72c" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow1)"/>
+  <text x="215" y="165" text-anchor="middle" fill="#9aa4b2" font-size="11" font-family="sans-serif">3. ack: sent ✓</text>
+
+  <text x="365" y="220" text-anchor="middle" fill="#6b7280" font-size="12" font-family="sans-serif">Both hold persistent WebSocket connections to the same server instance</text>
+</svg>
+</div>
+<div class="diagram-caption">v1 — trivial case: both users' WebSocket connections happen to terminate on the same server</div>
+
+<p>The flow: Alice's client opens a WebSocket to a chat server. Bob does the same. The server keeps an in-memory map of <code>user_id → socket_connection</code>. When Alice sends a message, the server looks up Bob's connection in that map and pushes directly.</p>
+
+<div class="callout warn">
+  <div class="callout-title">Why this immediately breaks</div>
+  <p style="margin-bottom:0;">This works for a toy demo and fails in about four different ways the moment you have more than one server: (1) Bob might be connected to a <em>different</em> server than Alice, (2) Bob might not be connected at all, (3) the in-memory map vanishes if the server restarts, (4) we have zero durability — if the push fails, the message is gone forever. Every subsequent iteration exists to fix one of these.</p>
+</div>
+
+<h2 id="v2"><span class="qmark">Q:</span> What happens when the receiver is offline?</h2>
+<p class="lead">This is the question that separates a real design from a demo. Bob closes his laptop. Alice sends a message. Where does it go?</p>
+
+<p>The fix is to stop treating message delivery as "push and forget" and start treating it as <strong>write-then-notify</strong>: every message is durably persisted <em>before</em> we even attempt real-time delivery. Real-time push becomes an optimization on top of a durable store, not the primary mechanism.</p>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 720 320" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#34b7f1"/></marker>
+  </defs>
+  <rect x="20" y="130" width="100" height="55" rx="10" fill="#1d212b" stroke="#2a2f3a"/>
+  <text x="70" y="163" text-anchor="middle" fill="#fff" font-size="13" font-family="sans-serif">Alice</text>
+
+  <rect x="200" y="120" width="130" height="75" rx="10" fill="#171a21" stroke="#34b7f1" stroke-width="1.5"/>
+  <text x="265" y="152" text-anchor="middle" fill="#fff" font-size="13" font-family="sans-serif">Chat Server</text>
+  <text x="265" y="170" text-anchor="middle" fill="#9aa4b2" font-size="11" font-family="sans-serif">(handles Alice's conn)</text>
+
+  <rect x="420" y="30" width="140" height="60" rx="10" fill="#171a21" stroke="#d4a72c" stroke-width="1.5"/>
+  <text x="490" y="65" text-anchor="middle" fill="#fff" font-size="13" font-family="sans-serif">Message Store</text>
+  <text x="490" y="82" text-anchor="middle" fill="#9aa4b2" font-size="10" font-family="sans-serif">(durable, per-user inbox)</text>
+
+  <rect x="420" y="220" width="140" height="60" rx="10" fill="#171a21" stroke="#2a2f3a"/>
+  <text x="490" y="245" text-anchor="middle" fill="#fff" font-size="12" font-family="sans-serif" opacity="0.5">Bob — OFFLINE</text>
+  <text x="490" y="262" text-anchor="middle" fill="#6b7280" font-size="10" font-family="sans-serif">no socket connection</text>
+
+  <line x1="120" y1="150" x2="195" y2="150" stroke="#34b7f1" stroke-width="2" marker-end="url(#arrow2)"/>
+  <text x="157" y="140" text-anchor="middle" fill="#9aa4b2" font-size="10" font-family="sans-serif">send</text>
+
+  <line x1="330" y1="140" x2="415" y2="80" stroke="#d4a72c" stroke-width="2" marker-end="url(#arrow2)"/>
+  <text x="380" y="100" text-anchor="middle" fill="#9aa4b2" font-size="10" font-family="sans-serif">1. persist</text>
+
+  <line x1="330" y1="165" x2="415" y2="235" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="4,3"/>
+  <text x="380" y="215" text-anchor="middle" fill="#6b7280" font-size="10" font-family="sans-serif">2. lookup conn: NONE</text>
+
+  <line x1="120" y1="175" x2="195" y2="180" stroke="#25d366" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrow2)"/>
+  <text x="157" y="200" text-anchor="middle" fill="#9aa4b2" font-size="10" font-family="sans-serif">ack: sent ✓</text>
+
+  <text x="490" y="320" text-anchor="middle" fill="#6b7280" font-size="11" font-family="sans-serif">Later: Bob reconnects → server queries his inbox → replays missed messages</text>
+</svg>
+</div>
+<div class="diagram-caption">v2 — persist first, deliver-if-possible second. Offline is now the default path, not an exception.</div>
+
+<h3>The mental model shift</h3>
+<p>Reframe the receiver's inbox as a <strong>durable, ordered, per-user message queue</strong> — conceptually similar to an email inbox, not a live phone call. Every message gets:</p>
+<ul>
+  <li>Written to persistent storage first (this is the durability guarantee — once acked to the sender, it cannot be lost)</li>
+  <li>An attempt at real-time push if the recipient has an active connection</li>
+  <li>If no active connection: nothing else happens right now. No retry loop, no background job. The message just sits durably in the recipient's inbox.</li>
+  <li>On the recipient's <em>next</em> connection, the client fetches "everything since my last synced message" and the server replays the backlog</li>
+</ul>
+
+<p>This one design choice — <strong>durability first, real-time delivery as a best-effort accelerant</strong> — is what makes offline handling a non-event instead of a special case. We don't need a separate "offline queue service." Online delivery and offline delivery are the <em>same code path</em>; the only difference is whether step 2 (push) succeeds.</p>
+
+<h4>What does "sync since last message" actually look like?</h4>
+<p>Each message gets a monotonically increasing sequence number <em>per conversation</em> (not global — global sequence numbers become a single point of write contention at this scale). The client persists the highest sequence number it has seen for each conversation. On reconnect:</p>
+<pre>GET /sync?conversations=[{id: "chat_123", last_seen_seq: 4821}, ...]
+→ server returns all messages with seq > 4821 for each conversation, oldest first</pre>
+<p>This is strictly better than "server tracks unread messages and pushes them" because it's <strong>client-driven and idempotent</strong> — if the sync call fails halfway and retries, the client just asks again with the same cursor. No server-side "did I already mark this as delivered" bookkeeping needed for the sync mechanism itself.</p>
+
+<h2 id="v3"><span class="qmark">Q:</span> How do we scale past one WebSocket server — and how does a message find a receiver on a <em>different</em> machine?</h2>
+<p class="lead">This is the question you specifically flagged, so let's go slow. At 2–3B users, one server obviously can't hold every WebSocket connection. Say we have a fleet of <strong>Connection Servers</strong> (sometimes called Gateway or Edge servers), each holding maybe 500K–1M concurrent connections. Alice is connected to <code>gateway-7</code>. Bob is connected to <code>gateway-142</code>. Alice sends a message. How does it reach Bob?</p>
+
+<p><span class="weak">The naive/weak answer</span>: "gateway-7 asks gateway-142 directly." This requires every gateway to know about every other gateway and maintain N² potential connections between them — it doesn't scale and creates a tightly coupled mesh where gateway failures cascade.</p>
+
+<p><span class="strong-answer">The correct answer</span> decouples gateways from each other entirely using two pieces: a <strong>connection registry</strong> (who is connected to which gateway, right now) and a <strong>pub/sub message bus</strong> (how a message actually gets routed to the right gateway without gateways talking to each other directly).</p>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 760 420" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arrow3" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#34b7f1"/></marker>
+    <marker id="arrow3g" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#25d366"/></marker>
+  </defs>
+
+  <rect x="20" y="170" width="100" height="55" rx="10" fill="#1d212b" stroke="#2a2f3a"/>
+  <text x="70" y="203" text-anchor="middle" fill="#fff" font-size="13" font-family="sans-serif">Alice</text>
+
+  <rect x="180" y="160" width="130" height="75" rx="10" fill="#171a21" stroke="#34b7f1" stroke-width="1.5"/>
+  <text x="245" y="192" text-anchor="middle" fill="#fff" font-size="13" font-family="sans-serif">gateway-7</text>
+  <text x="245" y="210" text-anchor="middle" fill="#9aa4b2" font-size="10" font-family="sans-serif">holds Alice's socket</text>
+
+  <rect x="300" y="20" width="170" height="70" rx="10" fill="#171a21" stroke="#d4a72c" stroke-width="1.5"/>
+  <text x="385" y="50" text-anchor="middle" fill="#fff" font-size="13" font-family="sans-serif">Connection Registry</text>
+  <text x="385" y="68" text-anchor="middle" fill="#9aa4b2" font-size="10" font-family="sans-serif">Redis: user_id → gateway_id</text>
+
+  <rect x="330" y="330" width="170" height="70" rx="10" fill="#171a21" stroke="#2a2f3a"/>
+  <text x="415" y="358" text-anchor="middle" fill="#fff" font-size="12" font-family="sans-serif">Message Store</text>
+  <text x="415" y="375" text-anchor="middle" fill="#9aa4b2" font-size="10" font-family="sans-serif">persist (durability)</text>
+
+  <rect x="520" y="160" width="150" height="75" rx="10" fill="#171a21" stroke="#25d366" stroke-width="1.5"/>
+  <text x="595" y="188" text-anchor="middle" fill="#fff" font-size="13" font-family="sans-serif">Pub/Sub Bus</text>
+  <text x="595" y="205" text-anchor="middle" fill="#9aa4b2" font-size="10" font-family="sans-serif">(Kafka / Redis Pub-Sub)</text>
+  <text x="595" y="220" text-anchor="middle" fill="#6b7280" font-size="9" font-family="sans-serif">topic per gateway</text>
+
+  <rect x="590" y="290" width="140" height="70" rx="10" fill="#171a21" stroke="#34b7f1" stroke-width="1.5"/>
+  <text x="660" y="318" text-anchor="middle" fill="#fff" font-size="13" font-family="sans-serif">gateway-142</text>
+  <text x="660" y="336" text-anchor="middle" fill="#9aa4b2" font-size="10" font-family="sans-serif">holds Bob's socket</text>
+
+  <rect x="670" y="130" width="80" height="45" rx="8" fill="#1d212b" stroke="#2a2f3a"/>
+  <text x="710" y="157" text-anchor="middle" fill="#fff" font-size="12" font-family="sans-serif">Bob</text>
+
+  <line x1="120" y1="197" x2="175" y2="197" stroke="#34b7f1" stroke-width="2" marker-end="url(#arrow3)"/>
+  <text x="147" y="187" text-anchor="middle" fill="#9aa4b2" font-size="9" font-family="sans-serif">1.send</text>
+
+  <line x1="270" y1="160" x2="330" y2="90" stroke="#d4a72c" stroke-width="1.5" marker-end="url(#arrow3)"/>
+  <text x="270" y="120" text-anchor="middle" fill="#9aa4b2" font-size="9" font-family="sans-serif" transform="rotate(-40 270 120)">2. who has Bob?</text>
+
+  <line x1="310" y1="200" x2="410" y2="330" stroke="#6b7280" stroke-width="1.5" marker-end="url(#arrow3)"/>
+  <text x="330" y="270" text-anchor="middle" fill="#9aa4b2" font-size="9" font-family="sans-serif">3. persist</text>
+
+  <line x1="310" y1="195" x2="515" y2="195" stroke="#25d366" stroke-width="2" marker-end="url(#arrow3g)"/>
+  <text x="410" y="185" text-anchor="middle" fill="#9aa4b2" font-size="9" font-family="sans-serif">4. publish(gateway-142 topic, msg)</text>
+
+  <line x1="610" y1="235" x2="655" y2="285" stroke="#25d366" stroke-width="2" marker-end="url(#arrow3g)"/>
+  <text x="660" y="260" text-anchor="middle" fill="#9aa4b2" font-size="9" font-family="sans-serif">5. deliver</text>
+
+  <line x1="670" y1="330" x2="700" y2="180" stroke="#34b7f1" stroke-width="2" marker-end="url(#arrow3)"/>
+  <text x="710" y="255" text-anchor="middle" fill="#9aa4b2" font-size="9" font-family="sans-serif" transform="rotate(-80 710 255)">6. push</text>
+</svg>
+</div>
+<div class="diagram-caption">v3 — gateways never talk to each other. They talk to a registry (to find) and a pub/sub bus (to route). This is the answer to "sender and receiver on different servers."</div>
+
+<h3>Walking through it step by step</h3>
+<ol>
+  <li><strong>Connection registration</strong>: when Bob's client opens a WebSocket to <code>gateway-142</code>, that gateway writes <code>bob_user_id → gateway-142</code> into a shared, fast key-value store (Redis, typically with a TTL as a self-healing mechanism — more on that below).</li>
+  <li>Alice sends a message. It lands on <strong>her</strong> gateway, <code>gateway-7</code> — this has nothing to do with Bob.</li>
+  <li><code>gateway-7</code> persists the message to durable storage (this happens <em>regardless</em> of whether Bob is online — durability isn't conditional).</li>
+  <li><code>gateway-7</code> looks up Bob in the connection registry. Gets back <code>gateway-142</code>.</li>
+  <li><code>gateway-7</code> does <strong>not</strong> open a connection to <code>gateway-142</code>. Instead it publishes the message onto a pub/sub topic that <code>gateway-142</code> subscribes to (e.g., a topic keyed by gateway ID, or a consistent-hash-partitioned Kafka topic where <code>gateway-142</code> owns certain partitions).</li>
+  <li><code>gateway-142</code>, subscribed to its own topic, receives the message and pushes it down Bob's already-open WebSocket.</li>
+</ol>
+
+<h3>Why pub/sub instead of direct gateway-to-gateway RPC?</h3>
+<div class="panel">
+  <ul style="margin:0;">
+    <li><strong>Decoupling</strong>: <code>gateway-7</code> never needs to know <code>gateway-142</code> exists, its IP, its health, or whether it's mid-deployment-restart. It only needs to know "publish to topic X." This turns an O(N²) mesh of gateway relationships into O(N) — each gateway only talks to the bus.</li>
+    <li><strong>Buffering under load</strong>: if <code>gateway-142</code> is momentarily slow (GC pause, brief network blip), the message sits in the pub/sub topic instead of the publisher blocking or the message getting dropped. Kafka in particular gives you a replay-able log, not just fire-and-forget pub/sub.</li>
+    <li><strong>Fan-out for groups is free</strong>: if a message needs to reach 500 group members spread across 80 different gateways, "publish once, N gateways subscribe and pull their relevant slice" is dramatically cheaper than the sender's gateway making 80 direct calls.</li>
+    <li><strong>Server death is a non-event</strong>: if <code>gateway-142</code> crashes mid-message, the message isn't lost — it was persisted in step 3 independent of delivery, and (depending on bus choice) may still be sitting in the topic for a replacement consumer.</li>
+  </ul>
+</div>
+
+<div class="callout edge">
+  <div class="callout-title">Edge case: what if the registry says gateway-142, but Bob disconnected 2 seconds ago and the registry hasn't updated yet?</div>
+  <p style="margin-bottom:0;"><code>gateway-142</code> receives the pub/sub message, tries to push to Bob's socket, finds it's closed. It does <strong>not</strong> retry the push or treat this as an error — the message is already durably persisted (step 3 happened unconditionally). <code>gateway-142</code> simply drops the push attempt; Bob will get the message on his next reconnect/sync. This is exactly why "persist first, push second" matters — the push path is allowed to fail silently because it was never the source of truth.</p>
+</div>
+
+<h2 id="v4"><span class="qmark">Q:</span> How do group chats avoid making the sender pay for every recipient?</h2>
+<p class="lead">A 1024-member group is a fan-out problem hiding inside a chat app. Naively, "one message becomes 1024 writes done synchronously by whoever hit send" is a latency and reliability disaster — the sender's request now blocks on the slowest of 1024 downstream operations.</p>
+
+<h3>Fan-out-on-write, adapted from the social feed pattern</h3>
+<p>This is the same named pattern you used in the Instagram HLD, applied here: <strong>the sender's API call does the minimum possible work synchronously</strong> (persist one canonical copy of the message, tagged with the group ID), and a background fan-out process asynchronously creates the per-recipient delivery records / pushes to each recipient's gateway via the pub/sub bus from v3.</p>
+
+<pre>1. Alice sends to group_id=456 (1024 members)
+2. Server persists ONE row: {msg_id, group_id: 456, sender: alice, body, seq}
+3. Server returns "sent ✓" to Alice immediately — she does not wait for fan-out
+4. Async worker reads group_456's member list, and for each member:
+     - writes a per-user "pointer" record (or relies on group-scoped sync, see below)
+     - publishes to that member's gateway topic if they're online
+5. Each online member's gateway pushes the message down their socket
+6. Offline members pick it up via the same sync-since-last-seq mechanism as 1:1</pre>
+
+<div class="callout">
+  <div class="callout-title">Group storage: don't copy the message 1024 times</div>
+  <p style="margin-bottom:0;">Store the message body <strong>once</strong>, keyed by <code>group_id</code>. Each member's client, on sync, asks "give me messages in groups I'm part of since sequence N" — it reads the single shared copy. What you fan out is <em>notifications/pushes</em>, not the message payload itself. This is the same space-efficiency insight as fan-out-on-write in a feed system: don't duplicate the expensive payload, duplicate the cheap pointer.</p>
+</div>
+
+<h3>Large groups: push vs pull hybrid</h3>
+<p>For very large or very "hot" groups (announcement channels, broadcast lists), pure push-fan-out to potentially-offline members wastes work. The same hybrid approach from celebrity fan-out in feed systems applies: for groups above a size threshold, skip proactive per-member pub/sub publishing for <em>offline</em> members entirely (they'll pull on sync anyway) and only push to members who are <em>currently connected</em>. This turns "fan out to 1024" into "fan out to however many are actually online right now," which for most groups at any given moment is a small fraction.</p>
+
+<h2 id="decisions"><span class="qmark">Q:</span> What are the 2–3 decisions that actually separate a good answer from a great one here?</h2>
+
+<div class="decision">
+  <div class="decision-title">Decision 1 — How do we guarantee message ordering and prevent duplicates on flaky mobile connections?</div>
+
+  <div class="tier tier-bad">
+    <span class="tier-label">Bad</span>
+    <h5>Approach: trust the network, use server receipt time as order</h5>
+    <p><strong>Approach:</strong> Order messages by the timestamp the server received them. No dedup logic — assume each send is a single event.</p>
+    <div class="tier-sub">Challenges</div>
+    <p style="margin-bottom:0;">Mobile clients retry on timeout. If Alice's phone sends a message, the network blips before the ack comes back, and the client retries — the server now has two copies with two different receipt timestamps, potentially out of order relative to a message sent in between. Server-receipt-time also doesn't reflect user intent: two messages typed in order but sent over a lossy connection can arrive at the server out of order.</p>
+  </div>
+
+  <div class="tier tier-good">
+    <span class="tier-label">Good</span>
+    <h5>Approach: client-generated message ID + per-conversation sequence number</h5>
+    <p><strong>Approach:</strong> Client generates a UUID for each message <em>before</em> sending (enables dedup: server checks "have I seen this UUID for this sender" and no-ops if so). Server assigns the authoritative ordering via a monotonically increasing sequence number scoped to the conversation, not global.</p>
+    <div class="tier-sub">Challenges</div>
+    <p style="margin-bottom:0;">Solves duplication and gives a clean ordering axis, but "monotonically increasing per conversation" needs a serialization point — if two people in a group send simultaneously, who increments the counter? A naive shared counter in a relational row becomes a write hotspot under concurrent sends into the same busy group.</p>
+  </div>
+
+  <div class="tier tier-great">
+    <span class="tier-label">Great</span>
+    <h5>Approach: client UUID for dedup + server-assigned sequence via single-writer-per-conversation, with causal (not wall-clock) ordering as the mental model</h5>
+    <p><strong>Approach:</strong> Same client UUID dedup as "Good," but the sequence number is assigned by whichever single server/partition owns that conversation's write path at that moment (achieved by consistent-hashing conversation ID to a specific partition/owner — the same conversation always routes to the same sequencer, so there's no cross-node race). Explicitly frame this to the interviewer as <strong>causal ordering, not global wall-clock ordering</strong>: we guarantee "everyone sees Alice's messages in the order Alice sent them," not "everyone sees a single universal timeline across all users" — the latter is neither achievable nor necessary in a chat app.</p>
+    <div class="tier-sub">Challenges</div>
+    <p style="margin-bottom:0;">Requires care in the partition-ownership handoff during rebalancing/failover (brief window where two nodes could both think they own a conversation) — mitigated with a lease/fencing token, same pattern as leader election anywhere else.</p>
+  </div>
+</div>
+
+<div class="decision">
+  <div class="decision-title">Decision 2 — What delivery guarantee do we actually promise: at-most-once, at-least-once, or exactly-once?</div>
+
+  <div class="tier tier-bad">
+    <span class="tier-label">Bad</span>
+    <h5>Approach: promise exactly-once end-to-end</h5>
+    <p><strong>Approach:</strong> Try to guarantee each message is delivered exactly one time, no duplicates, no drops, across the entire pipeline (client → gateway → pub/sub → gateway → client).</p>
+    <div class="tier-sub">Challenges</div>
+    <p style="margin-bottom:0;"><span class="weak">This is the textbook trap answer.</span> True exactly-once delivery across an unreliable network is provably impossible in the general case (two generals problem) — you can get exactly-once <em>effect</em> via idempotency, but not exactly-once <em>delivery</em> at the transport level. Promising it as a delivery guarantee reveals a gap in distributed systems fundamentals.</p>
+  </div>
+
+  <div class="tier tier-good">
+    <span class="tier-label">Good</span>
+    <h5>Approach: at-least-once delivery, retry aggressively on the send side</h5>
+    <p><strong>Approach:</strong> Sender retries until acked. Server may occasionally deliver a message twice (e.g., ack lost in transit, sender retries a message the server already has). Accept duplicates as a possibility.</p>
+    <div class="tier-sub">Challenges</div>
+    <p style="margin-bottom:0;">Without a dedup mechanism on the receiving client, "occasional duplicates" becomes "user sees the same message twice," which is a visible bug, not a backend implementation detail.</p>
+  </div>
+
+  <div class="tier tier-great">
+    <span class="tier-label">Great</span>
+    <h5>Approach: at-least-once delivery at the transport layer + idempotent, client-side dedup by message UUID = exactly-once <em>effect</em></h5>
+    <p><strong>Approach:</strong> Explicitly separate "delivery guarantee" (at-least-once — messages might arrive twice, that's fine and expected) from "user-visible guarantee" (exactly-once effect — the receiving client keeps a set/index of recently-seen message UUIDs and silently drops a duplicate before rendering it). This is strictly better than chasing exactly-once delivery because it's <em>achievable</em>, and it pushes the complexity to the place that can actually solve it cheaply: an idempotency check is O(1) hash lookup on the client, versus distributed exactly-once coordination which is extremely expensive and still has edge cases.</p>
+    <div class="tier-sub">Challenges</div>
+    <p style="margin-bottom:0;">Client must persist a reasonably-sized recent-message-ID cache (not the full history) and handle the rare case where a duplicate arrives long after the dedup window — acceptable trade-off, since a duplicate months later re-rendering harmlessly is a non-event compared to a lost message.</p>
+  </div>
+</div>
+
+<div class="decision">
+  <div class="decision-title">Decision 3 — How does the system know which gateway a user is connected to, and what happens when that mapping goes stale?</div>
+
+  <div class="tier tier-bad">
+    <span class="tier-label">Bad</span>
+    <h5>Approach: gateway pushes connection state to a database on connect, relies on explicit disconnect cleanup</h5>
+    <p><strong>Approach:</strong> On WebSocket open, write <code>user → gateway</code> to a DB row. On WebSocket close, delete the row.</p>
+    <div class="tier-sub">Challenges</div>
+    <p style="margin-bottom:0;">Mobile clients don't cleanly disconnect — apps get killed, phones die, networks vanish without a TCP FIN ever arriving. The registry silently accumulates <strong>ghost entries</strong>: users who are gone but still "registered" as connected to a gateway. Every message sent to them gets routed into a void, degrading perceived delivery latency (server thinks it delivered; it didn't) until the user reconnects and syncs — <em>if</em> the client even knows to sync.</p>
+  </div>
+
+  <div class="tier tier-good">
+    <span class="tier-label">Good</span>
+    <h5>Approach: TTL-based registry entries with periodic heartbeat refresh</h5>
+    <p><strong>Approach:</strong> Store <code>user → gateway</code> in Redis with a TTL (e.g., 60s). Client sends a lightweight heartbeat/ping every ~30s; gateway refreshes the TTL on each heartbeat. If heartbeats stop, the entry expires on its own — self-healing, no explicit cleanup logic required.</p>
+    <div class="tier-sub">Challenges</div>
+    <p style="margin-bottom:0;">Solves the ghost-entry problem for silently-dead connections, but introduces a detection lag — up to one TTL window where the system still believes a dead connection is alive, and heartbeat traffic at billions of connections is non-trivial bandwidth (even if each ping is tiny, ping × 2-3B connections × every 30s adds up).</p>
+  </div>
+
+  <div class="tier tier-great">
+    <span class="tier-label">Great</span>
+    <h5>Approach: TTL + heartbeat (same as Good) + gateway-owns-the-source-of-truth on push failure, with the registry treated as a cache, not ground truth</h5>
+    <p><strong>Approach:</strong> Keep the TTL/heartbeat mechanism, but add the key insight: <strong>the registry is a hint, not a guarantee</strong>, and the system is designed to be correct even when the hint is stale. When a gateway attempts a push and finds the socket actually closed (this is authoritative — the gateway physically owns that TCP connection and knows immediately), it proactively deletes the stale registry entry right then, rather than waiting for TTL expiry. This collapses the detection lag from "up to 60s" to "immediate, the moment we actually try to use the stale data" — and because delivery correctness never depended on the registry being perfectly accurate (message was already durably persisted per the v2 design), staleness in the registry is purely a latency-of-realizing-you're-stale problem, never a correctness problem.</p>
+    <div class="tier-sub">Challenges</div>
+    <p style="margin-bottom:0;">Requires discipline to keep this invariant true everywhere in the codebase — any code path that treats the registry as authoritative (rather than "best current guess, verify on use") reintroduces the ghost-entry class of bug.</p>
+  </div>
+</div>
+
+<h2 id="deepdives"><span class="qmark">Q:</span> Deep dives — the mechanisms worth going one level deeper on</h2>
+
+<h3>Deep dive 1: Offline delivery, end to end</h3>
+<div class="badge-row"><span class="badge">Pattern: write-ahead durability + client-driven pull-sync</span></div>
+
+<p>Let's fully trace what happens when a message is sent to a completely offline user, and what happens hours later when they come back.</p>
+
+<h4>At send time (Bob is offline)</h4>
+<ol>
+  <li>Alice's client sends the message with a client-generated UUID over her WebSocket.</li>
+  <li>The gateway persists it to the durable message store — a write optimized for append (think a wide-column store or partitioned relational table, keyed by conversation ID with the sequence number as the sort key). This write is on the synchronous critical path; Alice's "sent ✓" doesn't fire until this succeeds.</li>
+  <li>The gateway checks the connection registry for Bob → nothing found (either no entry, or entry present but push fails against a dead socket, per Decision 3 above).</li>
+  <li><strong>Almost nothing else happens.</strong> No retry queue, no "offline message service," no background job polling for when Bob comes back. The one action taken is a fire-and-forget push request to APNs/FCM to nudge Bob's device to sync sooner (see Deep Dive 6) — the gateway doesn't track whether it lands. The message is sitting in the durable store, associated with Bob's conversation. That's the entire "offline" mechanism — it's an emergent property of "we always persist," not a distinct subsystem.</li>
+</ol>
+
+<h4>At reconnect time (Bob opens the app after 6 hours)</h4>
+<ol>
+  <li>Bob's client opens a new WebSocket, authenticates.</li>
+  <li>Client sends its local sync cursor: the last sequence number it has seen, <em>per conversation</em> it's part of (this can be batched — "here's my state for all 40 of my active conversations" in one call, not 40 round trips).</li>
+  <li>Server queries the message store: "for each of these conversations, give me everything with seq greater than what the client already has."</li>
+  <li>Results stream back, oldest-first per conversation, so the client can render history in the correct order and update its local cursor incrementally (important for resilience — if the connection drops again mid-sync, the client's cursor reflects exactly how far it got, and resuming is just "ask again with the updated cursor," no duplicate re-fetch, no gap).</li>
+  <li>New registry entry is written: Bob → this gateway. Future messages to Bob now push in real time again.</li>
+</ol>
+
+<div class="callout">
+  <div class="callout-title">Why this design avoids a whole class of bugs</div>
+  <p style="margin-bottom:0;">Notice there's no separate "did we already try to deliver this and fail" state machine. Delivery is stateless from the sender's perspective — it either lands in real time (best effort) or it doesn't, and either way the receiver's next sync captures the true state. Compare this to a design where the server tracks "pending delivery" per offline message and retries on a schedule — that requires a scheduler, retry backoff logic, and dead-letter handling for messages that are pending for weeks (users go on long trips). The pull-based sync model sidesteps all of that: the "retry" is simply "the receiver will ask when they're ready," with no server-side timer ever needed.</p>
+</div>
+
+<h3>Deep dive 2: What is pub/sub actually doing for us here, precisely?</h3>
+<div class="badge-row"><span class="badge">Pattern: decoupled publish/subscribe as a routing indirection layer</span></div>
+
+<p>It's worth being precise about this because "we use pub/sub" is often stated without explaining <em>which problem</em> it solves. In this design, pub/sub is solving exactly one problem: <strong>letting a message travel from "wherever it was received" to "wherever it needs to be pushed" without the two endpoints having a direct relationship.</strong></p>
+
+<table>
+  <tr><th>Without pub/sub</th><th>With pub/sub</th></tr>
+  <tr><td>gateway-7 needs to know gateway-142's address, health, and load — this is service discovery baked into application logic</td><td>gateway-7 only needs to know "publish to bus, topic = f(recipient)" — zero knowledge of any other gateway</td></tr>
+  <tr><td>If gateway-142 is unreachable, gateway-7's request fails synchronously — sender's send path is coupled to receiver's server health</td><td>The bus absorbs the message; if gateway-142 is briefly unavailable, the message waits in the topic/partition until a consumer (possibly a replacement instance) picks it up</td></tr>
+  <tr><td>Group fan-out to 1024 members on 200 different gateways = up to 200 synchronous outbound calls from the sender's server</td><td>Group fan-out = one (or a few, partitioned) publish operations; subscribing gateways pull only what's relevant to their connected users</td></tr>
+  <tr><td>Adding a new gateway instance means updating a discovery mechanism everywhere</td><td>New gateway just subscribes to its assigned topic/partition — the publishers never needed to change</td></tr>
+</table>
+
+<h4>Topic/partition scheme: how does a gateway know what to subscribe to?</h4>
+<p>Two common approaches, and it's worth naming the trade-off explicitly:</p>
+<ul>
+  <li><strong>Topic-per-gateway</strong>: each gateway instance has its own dedicated topic (or Kafka consumer group tied to specific partitions). Simple mental model, but topic count scales with fleet size, and if a gateway restarts and comes back as a "new" instance identity, you need a rebalancing story.</li>
+  <li><strong>Consistent-hash-partitioned topic</strong>: a fixed number of partitions (say, 4096), user IDs hash-mapped to a partition, and gateways subscribe to whichever partitions their currently-connected users fall into (updating subscriptions as users connect/disconnect). This decouples "number of partitions" from "number of gateway instances," which scales better operationally — you don't reshuffle the whole topology every time you add a gateway.</li>
+</ul>
+<p>For an interview answer, stating the trade-off between these two is more valuable than picking one dogmatically — <strong>topic-per-gateway is simpler to reason about early; consistent-hash partitioning is what you'd actually want at WhatsApp's real scale</strong> because gateway fleets autoscale constantly and you don't want topic churn on every scale-up event.</p>
+
+<h4>Redis Pub/Sub vs Kafka here — which, and why?</h4>
+<p>This is a great "it depends, and here's exactly what it depends on" answer:</p>
+<ul>
+  <li><strong>Redis Pub/Sub</strong>: extremely low latency, simple, but <strong>fire-and-forget</strong> — if no subscriber is listening at publish time, the message is gone. Fine <em>only</em> if you've already guaranteed durability elsewhere (which we have — v2's persist-first design means Redis pub/sub losing an in-flight "real-time push attempt" is totally fine, because the durable copy still exists for sync-on-reconnect).</li>
+  <li><strong>Kafka</strong>: durable log, consumers can replay, survives consumer downtime — but higher latency and more operational weight per message than Redis.</li>
+</ul>
+<p>Given that we <em>already</em> have a separate durable message store, using Redis Pub/Sub for the "best-effort real-time nudge" layer is the right call — we don't need the pub/sub layer itself to be durable, because durability is already handled upstream. Using Kafka here would be paying for a guarantee we don't need at that specific layer. (Kafka very much earns its keep elsewhere in the system — e.g., as the backbone for the message persistence write path itself, for analytics event streams, or for the group fan-out job queue — just not necessarily as the real-time-push notification bus.)</p>
+
+<h3>Deep dive 3: Cross-server WebSocket routing — the full lifecycle</h3>
+<div class="badge-row"><span class="badge">Pattern: connection ownership registry + push-verify-on-use</span></div>
+
+<p>Let's zoom into the registry itself, since "Redis stores user → gateway" undersells the subtlety.</p>
+
+<h4>What's actually stored, and why not just user → IP</h4>
+<pre>Key:   presence:{user_id}
+Value: { gateway_id: "gw-142", connection_id: "conn_9f3a...", last_heartbeat: 1735000000 }
+TTL:   60s, refreshed on each heartbeat</pre>
+<p>The <code>connection_id</code> matters beyond just the gateway — a user might reconnect rapidly (flaky network) and briefly have two "in-flight" registrations racing each other. Including a connection ID lets the gateway itself disambiguate "is this heartbeat for the connection I currently think is active, or a stale one" without needing a lock.</p>
+
+<h4>Multi-device: the registry isn't a single value, it's a set</h4>
+<p>WhatsApp users are commonly connected from phone + web + desktop simultaneously. This changes the registry from <code>user_id → one gateway</code> to <code>user_id → set of (gateway, device, connection_id)</code>. On message delivery, the sender's gateway fans out the pub/sub publish to <em>every</em> entry in that set — all of Bob's devices get the message in real time, and each device independently tracks its own sync cursor (Bob might read a message on his phone and it needs to show as read on his desktop too — that's a separate read-receipt-sync fan-out using the same underlying mechanism).</p>
+
+<div class="callout edge">
+  <div class="callout-title">Edge case: Bob is connected to 3 gateways (phone/web/desktop) — does the message get persisted 3 times?</div>
+  <p style="margin-bottom:0;">No — persisted exactly once, keyed by conversation, independent of device count. The registry lookup fans out only the <em>push notification</em> step to N devices; all N devices then pull the same single stored message on their respective syncs. This is the same "store once, fan out pointers" principle from the group messaging section, applied to multi-device instead of multi-recipient.</p>
+</div>
+
+<h4>Full failure-mode walkthrough for cross-server delivery</h4>
+<table>
+  <tr><th>Failure</th><th>What happens</th></tr>
+  <tr><td>Registry lookup returns nothing (Bob never connected / entry expired)</td><td>No push attempted. Message sits durably. Delivered on next sync. Correct, expected "offline" path.</td></tr>
+  <tr><td>Registry says gateway-142, but gateway-142 crashed 5 seconds ago</td><td>Publish to gateway-142's topic succeeds (bus doesn't know the consumer is dead), but no one consumes it in real time. If using Kafka-backed bus: message sits in the partition, consumed once a replacement instance takes over that partition/consumer group. If using Redis Pub/Sub: message is silently dropped at the pub/sub layer — <em>this is fine</em> because the durable store still has it; Bob's client will pick it up on reconnect regardless of which bus technology lost the real-time nudge.</td></tr>
+  <tr><td>Registry says gateway-142, gateway-142 is alive, but Bob's specific socket died without cleanup (ghost entry)</td><td>Gateway-142 attempts the push, socket write fails immediately (this is a local, synchronous, authoritative signal — no ambiguity). Gateway-142 deletes the stale registry entry right then. Message still safely in durable storage.</td></tr>
+  <tr><td>Alice's own gateway (gateway-7) crashes right after she hits send, before persisting</td><td>Client never received "sent ✓" — from Alice's perspective the send is unconfirmed, her client retries with the <em>same</em> client-generated UUID once reconnected. Dedup on that UUID (Decision 1) ensures no duplicate even if the first attempt had actually landed right before the crash.</td></tr>
+</table>
+
+<h3>Deep dive 4: Worked example — fanning out 10 messages to a group, with real gateway IDs</h3>
+<div class="badge-row"><span class="badge">Pattern: fan-out-on-write + publish-per-gateway, not publish-per-recipient</span></div>
+
+<p>The mechanics above are easy to state abstractly and easy to get wrong in the details — specifically, people often assume fan-out means "one publish per recipient." It doesn't. Let's trace exactly what happens, with concrete IDs, when Alice sends 10 rapid messages into a 6-person group.</p>
+
+<h4>Setup</h4>
+<pre>Group G99 members: alice, bob, carol, dave, erin, frank
+
+Current connection registry state:
+  alice → gateway-3    (sender)
+  bob   → gateway-3    (same gateway as Alice — coincidence)
+  carol → gateway-7
+  dave  → gateway-7    (same gateway as carol)
+  erin  → gateway-11
+  frank → (no entry — OFFLINE)</pre>
+
+<h4>Message 1 of 10: send + persist</h4>
+<p>Alice's client already holds an open WebSocket to <code>gateway-3</code>. She sends:</p>
+<pre>{ "client_msg_id": "a1f9-...", "group_id": "G99", "body": "&lt;ciphertext&gt;" }</pre>
+<p><code>gateway-3</code> does two things <strong>synchronously</strong>, in order:</p>
+<ol>
+  <li><strong>Persist</strong> — writes exactly one row to the message store: <code>{group_id: G99, seq: 4821, sender: alice, body}</code>. One canonical copy, not one per recipient.</li>
+  <li><strong>Ack Alice</strong> — returns <code>sent ✓</code> immediately. Alice's client does not block on the other 5 members receiving anything.</li>
+</ol>
+<p>Fan-out to the other members hasn't happened yet at this point — and that's by design (Decision-1-style separation of "durable" from "delivered").</p>
+
+<h4>Fan-out: publish once per <em>gateway</em>, not once per <em>recipient</em></h4>
+<p>An async fan-out worker reads <code>G99</code>'s member list, drops Alice (sender never gets her own message pushed back), and resolves each remaining member against the connection registry:</p>
+<pre>bob   → gateway-3
+carol → gateway-7
+dave  → gateway-7
+erin  → gateway-11
+frank → not found</pre>
+<p>This is the detail worth being precise about: the worker does <strong>not</strong> issue 4 separate pushes. It groups recipients by destination gateway and publishes once per distinct gateway:</p>
+<pre>publish(topic="gw-3",  msg={seq:4821, group:G99, ...})   → covers bob
+publish(topic="gw-7",  msg={seq:4821, group:G99, ...})   → covers carol AND dave, one publish
+publish(topic="gw-11", msg={seq:4821, group:G99, ...})   → covers erin</pre>
+<p><strong>3 publishes cover 4 online recipients</strong> because carol and dave happen to share <code>gateway-7</code>. Each gateway, subscribed to its own topic, receives the event once and then checks <em>its own local socket table</em> for every connected user who belongs to <code>G99</code>:</p>
+<pre>gateway-7 receives the publish
+        → scans local sockets, finds carol AND dave are both G99 members
+        → pushes to both sockets from this single subscribed event</pre>
+<p>This is the actual scaling property: <strong>fan-out cost is a function of how many distinct gateways the group's online members are spread across, not how many members there are.</strong> A 1024-member group spread across 80 gateways costs 80 publishes, not 1024 — this is exactly the number referenced back in the v4 build-up.</p>
+
+<h4>Frank (offline): the fourth path, which is really "no path"</h4>
+<p>No registry entry exists for frank, so <strong>no publish is even attempted</strong> for him — there's nothing to retry or queue. Message 4821 simply sits in the durable store under <code>G99</code>. Whenever frank reconnects, his client sends its sync cursor (e.g. <code>last_seen_seq_for_G99: 4810</code>), and the server returns every message from 4811 onward in one response — by the time he's back, that naturally includes all 10 of Alice's messages at once, not 10 separate replays.</p>
+
+<h4>Now repeat this for messages 2 through 10</h4>
+<p>Each of the remaining 9 messages runs through the exact same loop independently — persisted first with its own sequence number (4822, 4823, … 4830), then its own round of per-gateway publishes. A few details worth keeping precise if asked:</p>
+<ul>
+  <li><strong>No batching into one blob.</strong> WhatsApp doesn't wait and coalesce 10 messages into a single push — that would add latency for no real gain, since a gateway can push several messages down an already-open socket back to back with negligible overhead per message.</li>
+  <li><strong>Ordering is preserved per gateway-topic.</strong> Publishes for seq 4821 through 4830 go out in order on <code>gw-7</code>'s topic, and <code>gateway-7</code> pushes them to carol and dave's sockets in the order received — so their clients see messages 1 through 10 in order, never interleaved with something else.</li>
+  <li><strong>Same-gateway sender/recipient (bob) is a genuine implementation choice, not a triviality.</strong> Bob shares <code>gateway-3</code> with Alice. Does the gateway still round-trip through the pub/sub bus to deliver to a socket it already owns locally? Two valid answers: (a) <strong>uniform path</strong> — always publish through the bus even for local recipients, because it keeps the code path identical everywhere and avoids a special case that can silently drift out of sync with the "real" path; or (b) <strong>local shortcut</strong> — detect same-gateway delivery and push directly, skipping the bus hop entirely, trading a small amount of code complexity for shaving one hop of latency. Worth naming both and stating which you'd pick and why (uniformity is usually the safer default; the shortcut is a legitimate optimization once the system is mature and well-tested).</li>
+</ul>
+
+<div class="callout">
+  <div class="callout-title">Why Redis Pub/Sub being lossy doesn't matter here</div>
+  <p style="margin-bottom:0;">Suppose <code>gateway-7</code> happens to be mid-restart exactly when the publish for message 4825 goes out. That publish is simply lost — Redis Pub/Sub has no replay for subscribers that weren't listening at publish time. It doesn't matter: carol and dave receive 4825 through 4830 together on their next sync/reconnect, because the durable message-store copy never depended on that publish succeeding. This is the same invariant repeated once more, now visible at the level of a single dropped event rather than a whole offline user: <strong>pub/sub is the best-effort accelerant; the message store is the only thing that has to be right.</strong></p>
+</div>
+
+<h3>Deep dive 5: How are users notified about "last seen"?</h3>
+<div class="badge-row"><span class="badge">Pattern: ephemeral presence + durable last-seen write-on-disconnect + privacy-gated read</span></div>
+
+<p>This looks like a trivial read off the connection registry and isn't — the registry as designed so far only answers "is this person online <em>right now</em>," and only while they're actually connected. The moment a user disconnects, their registry entry is deleted (or TTL-expires), and that data is simply gone. If "last seen 2 hours ago" is a product requirement, that timestamp has to be captured and written somewhere durable <em>at the moment of disconnect</em> — it cannot be reconstructed later from a registry that no longer has the entry.</p>
+
+<h4>Two different questions, often conflated</h4>
+<ol>
+  <li><strong>"Is this person online right now?"</strong> — a live, boolean-ish signal, already answered by the connection registry from Deep Dive 3.</li>
+  <li><strong>"When were they last online, if not now?"</strong> — a point-in-time timestamp that must persist <em>after</em> the registry entry disappears.</li>
+</ol>
+
+<h4>The write path: capture last-seen on disconnect, not just presence on connect</h4>
+<pre>On disconnect (clean close OR detected via heartbeat timeout):
+    gateway-3 writes:  SET last_seen:bob { timestamp: 1735003600 }
+                        (durable store — separate from the TTL'd registry key)
+    gateway-3 deletes: presence:bob   (the live connection entry, as before)</pre>
+<p>This is a second, small piece of durable state, deliberately kept separate from the ephemeral registry. It's low-volume — one write per disconnect event, not per message — so it doesn't need Redis's speed; the same durable store already holding messages is a fine home for it.</p>
+
+<h4>The read path: it's not a plain lookup, it's privacy-gated</h4>
+<p>This is the detail most naive designs miss, and it's worth stating explicitly because it's a <strong>product/privacy requirement shaping the technical design</strong>, not a technical constraint in isolation — the same category of decision as the "silently drop, don't error" choice for messaging a user who blocked you, raised earlier in edge cases.</p>
+<pre>GET last_seen:bob, requested_by: alice
+    → check: does bob allow last-seen visibility?        (bob's privacy setting)
+    → check: does alice ALSO allow HER last-seen to show?  (reciprocity check)
+    → only if BOTH are true → return bob's actual timestamp
+    → otherwise → return "last seen unavailable"</pre>
+<div class="callout edge">
+  <div class="callout-title">Edge case: why is the reciprocity check necessary, not just a one-way flag on Bob?</div>
+  <p style="margin-bottom:0;">If you hide your own last-seen from others, you lose the ability to see anyone else's — it's mutual, not a one-way toggle. This means the read path can't just check the <em>target's</em> privacy setting; it has to check both parties' settings before returning anything. Skipping this and only gating on the target's setting is the kind of bug that ships quietly and only gets caught in a privacy review, which is exactly why it's worth calling out unprompted in an interview — it signals you're thinking about the read path as a policy decision, not just a data fetch.</p>
+</div>
+
+<h4>Should presence changes push in real time, or should clients poll?</h4>
+<p>Given the pub/sub mechanism already built out for messages, the natural answer is to <strong>reuse it</strong> rather than invent new infrastructure — a presence change is just a different event type traveling the same publish/subscribe path already used for message delivery:</p>
+<pre>When bob disconnects:
+    gateway-3 publishes a "presence changed" event on the same
+    channel/topic mechanism used for message delivery — just a
+    different event type on the wire, not a new subsystem</pre>
+<div class="callout warn">
+  <div class="callout-title">The real scaling trap: don't broadcast presence to the whole contact list</div>
+  <p style="margin-bottom:0;">Naively pushing "I went offline" to everyone who has you in their contacts is expensive at scale — a popular or business account can have presence fan-out cost comparable to a small broadcast group every time it connects or disconnects. The mitigation is the same shape as read-receipt fan-out: <strong>only push presence updates to users who currently have that specific chat open</strong>, not to the full contact list. The client tells the server "I'm actively viewing bob's chat" (subscribing to his presence specifically) and unsubscribes on navigating away — this bounds fan-out to "people looking at this conversation right now," which is a small, self-limiting set, rather than "everyone who's ever talked to this person."</p>
+</div>
+
+<div class="callout">
+  <div class="callout-title">Summary: the three pieces this deep dive adds on top of the existing design</div>
+  <ol style="margin-bottom:0;">
+    <li>A durable <code>last_seen:{user_id}</code> write on disconnect — separate from the ephemeral, TTL'd registry entry that already existed for routing.</li>
+    <li>A privacy-check layer sitting in front of any last-seen read — reciprocal visibility between both parties, not a one-way flag on the target.</li>
+    <li>Presence-change events pushed through the existing pub/sub mechanism, but scoped only to viewers of that specific open chat — not a broadcast to the whole contact list.</li>
+  </ol>
+</div>
+
+<h3>Deep dive 6: When does the WebSocket actually exist? (the two-connection model)</h3>
+<div class="badge-row"><span class="badge">Pattern: app-owned real-time socket + OS-owned always-on push channel</span></div>
+
+<p>"Offline" has been used loosely so far to mean "no registry entry." It's worth being precise, because the client actually maintains — or benefits from — <strong>two separate connections</strong>, and they fail independently:</p>
+
+<table>
+  <tr><th>Connection</th><th>Held by</th><th>Purpose</th></tr>
+  <tr><td>WhatsApp's own WebSocket to a Connection Server</td><td>The WhatsApp app process — only while it has execution time</td><td>Real-time send/receive, presence, typing, receipts — everything on the wire protocol</td></tr>
+  <tr><td>Push socket — APNs (iOS) / FCM (Android)</td><td>The operating system — always on, one per device, shared by all apps</td><td>Wake the app or raise a notification when WhatsApp's own socket is gone</td></tr>
+</table>
+
+<p>So <strong>"offline" in the routing sense = WhatsApp's own socket is not currently registered</strong>. That is a broader condition than "the user's internet is off." It also covers: the app was backgrounded and the OS suspended it (the common case on iOS), or the app was swiped away entirely. In all of those the phone is still reachable — just via the OS push channel, not our socket.</p>
+
+<h4>When does WhatsApp's own socket get established?</h4>
+<p>Whenever the app has <em>both</em> execution time <em>and</em> network. Concretely:</p>
+<table>
+  <tr><th>Situation</th><th>WhatsApp socket?</th></tr>
+  <tr><td>App is open / foregrounded</td><td>Yes, always — reconnects with backoff on any drop, and immediately when network returns while foregrounded</td></tr>
+  <tr><td>App backgrounded, Android, battery optimization off</td><td>Usually yes, held for minutes–hours; reconnects on the OS network-change broadcast</td></tr>
+  <tr><td>App backgrounded, iOS</td><td>Usually no — the OS has suspended the process; delivery relies on an APNs push to wake it</td></tr>
+  <tr><td>App killed / swiped away (either OS)</td><td>No — only an OS push can wake the process</td></tr>
+  <tr><td>Internet was off, now back, app in background</td><td>Socket does <strong>not</strong> come up just because Wi-Fi returned. The sender's gateway pushes via APNs/FCM, the push wakes the app, and <em>that</em> triggers the socket — or the user opens the app</td></tr>
+</table>
+<p>This is why on an iPhone you sometimes watch messages "arrive" the instant you open WhatsApp: they were sitting in the durable store (Deep Dive 1), and the socket that pulls them only just came up.</p>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 512" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <defs>
+    <marker id="a6b" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#34b7f1"/></marker>
+    <marker id="a6g" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#25d366"/></marker>
+    <marker id="a6a" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#d4a72c"/></marker>
+    <marker id="a6m" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#6b7280"/></marker>
+  </defs>
+
+  <!-- lifelines -->
+  <g stroke="#2a2f3a" stroke-width="1" stroke-dasharray="3,5">
+    <line x1="95" y1="70" x2="95" y2="470"/>
+    <line x1="255" y1="70" x2="255" y2="470"/>
+    <line x1="415" y1="70" x2="415" y2="470"/>
+    <line x1="560" y1="70" x2="560" y2="470"/>
+    <line x1="710" y1="70" x2="710" y2="470"/>
+    <line x1="845" y1="70" x2="845" y2="470"/>
+  </g>
+
+  <!-- actor headers -->
+  <g>
+    <rect x="30" y="22" width="130" height="42" rx="8" fill="#171a21" stroke="#34b7f1" stroke-width="1.3"/>
+    <text x="95" y="41" text-anchor="middle" fill="#fff" font-size="12">Sender's gateway</text>
+    <text x="95" y="56" text-anchor="middle" fill="#9aa4b2" font-size="9">holds Alice's socket</text>
+
+    <rect x="190" y="22" width="130" height="42" rx="8" fill="#171a21" stroke="#2a2f3a"/>
+    <text x="255" y="41" text-anchor="middle" fill="#fff" font-size="12">Message Store</text>
+    <text x="255" y="56" text-anchor="middle" fill="#9aa4b2" font-size="9">durable, source of truth</text>
+
+    <rect x="350" y="22" width="130" height="42" rx="8" fill="#171a21" stroke="#d4a72c" stroke-width="1.3"/>
+    <text x="415" y="41" text-anchor="middle" fill="#fff" font-size="12">Connection Registry</text>
+    <text x="415" y="56" text-anchor="middle" fill="#9aa4b2" font-size="9">user → gateway (TTL)</text>
+
+    <rect x="495" y="22" width="130" height="42" rx="8" fill="#171a21" stroke="#d4a72c" stroke-width="1.3"/>
+    <text x="560" y="41" text-anchor="middle" fill="#fff" font-size="12">APNs / FCM</text>
+    <text x="560" y="56" text-anchor="middle" fill="#9aa4b2" font-size="9">OS push channel</text>
+
+    <rect x="645" y="22" width="130" height="42" rx="8" fill="#1d212b" stroke="#2a2f3a"/>
+    <text x="710" y="41" text-anchor="middle" fill="#fff" font-size="12">Bob device / OS</text>
+    <text x="710" y="56" text-anchor="middle" fill="#9aa4b2" font-size="9">app suspended / killed</text>
+
+    <rect x="780" y="22" width="120" height="42" rx="8" fill="#171a21" stroke="#34b7f1" stroke-width="1.3"/>
+    <text x="840" y="41" text-anchor="middle" fill="#fff" font-size="12">Bob's gateway</text>
+    <text x="840" y="56" text-anchor="middle" fill="#9aa4b2" font-size="9">socket opens on wake</text>
+  </g>
+
+  <!-- steps -->
+  <g font-size="10.5" fill="#c9cdd4">
+    <line x1="95"  y1="105" x2="249" y2="105" stroke="#6b7280" stroke-width="1.6" marker-end="url(#a6m)"/>
+    <text x="172" y="98" text-anchor="middle">1 · persist (unconditional, on critical path)</text>
+
+    <line x1="95"  y1="147" x2="409" y2="147" stroke="#d4a72c" stroke-width="1.6" marker-end="url(#a6a)"/>
+    <text x="252" y="140" text-anchor="middle">2 · look up Bob</text>
+
+    <line x1="415" y1="189" x2="101" y2="189" stroke="#d4a72c" stroke-width="1.6" stroke-dasharray="5,4" marker-end="url(#a6a)"/>
+    <text x="258" y="182" text-anchor="middle">3 · MISS — no live socket registered</text>
+
+    <line x1="95"  y1="231" x2="554" y2="231" stroke="#d4a72c" stroke-width="1.6" marker-end="url(#a6a)"/>
+    <text x="325" y="224" text-anchor="middle">4 · push request — device token only, NO message content (E2E)</text>
+
+    <line x1="560" y1="273" x2="704" y2="273" stroke="#d4a72c" stroke-width="1.6" marker-end="url(#a6a)"/>
+    <text x="632" y="266" text-anchor="middle">5 · wake app</text>
+
+    <line x1="710" y1="315" x2="839" y2="315" stroke="#34b7f1" stroke-width="1.6" marker-end="url(#a6b)"/>
+    <text x="775" y="308" text-anchor="middle">6 · open WebSocket + auth</text>
+
+    <line x1="845" y1="357" x2="261" y2="357" stroke="#25d366" stroke-width="1.6" marker-end="url(#a6g)"/>
+    <text x="553" y="350" text-anchor="middle">7 · cursor sync: "give me everything with seq &gt; my last-seen"</text>
+
+    <line x1="255" y1="399" x2="839" y2="399" stroke="#25d366" stroke-width="1.6" stroke-dasharray="5,4" marker-end="url(#a6g)"/>
+    <text x="547" y="392" text-anchor="middle">8 · missed ciphertext streams back, oldest-first</text>
+
+    <line x1="845" y1="441" x2="716" y2="441" stroke="#34b7f1" stroke-width="1.6" marker-end="url(#a6b)"/>
+    <text x="780" y="434" text-anchor="middle">9 · deliver down socket</text>
+  </g>
+
+  <text x="710" y="462" text-anchor="middle" fill="#6b7280" font-size="9">client decrypts locally, then raises the real notification</text>
+
+  <!-- legend -->
+  <g font-size="9.5" fill="#9aa4b2">
+    <line x1="120" y1="492" x2="150" y2="492" stroke="#34b7f1" stroke-width="2"/><text x="156" y="495">socket / real-time delivery</text>
+    <line x1="330" y1="492" x2="360" y2="492" stroke="#25d366" stroke-width="2"/><text x="366" y="495">durable sync (must be right)</text>
+    <line x1="560" y1="492" x2="590" y2="492" stroke="#d4a72c" stroke-width="2" stroke-dasharray="5,4"/><text x="596" y="495">push path (best-effort trigger)</text>
+  </g>
+</svg>
+</div>
+<div class="diagram-caption">Deep Dive 6 — Bob's app holds no live socket. Steps 2–5 (amber) are a fire-and-forget nudge; the message itself only ever travels the durable pull-sync path (steps 7–8) once the woken app reconnects.</div>
+
+<h4>How the push step slots into the send path</h4>
+<p>Deep Dive 1 said "nothing else happens" when the registry lookup misses. Precisely, <strong>one</strong> thing happens, and it changes nothing about durability: the gateway fires a push request to APNs/FCM for the recipient's device token. That push is a <em>trigger to sync sooner</em>, not a delivery mechanism and not the source of truth.</p>
+<pre>Gateway, on registry miss for Bob (or push to a dead socket fails):
+    → message is already durably persisted (unconditional, happened first)
+    → send push request to APNs/FCM for bob's device token
+    → done. No retry, no tracking whether the push landed.</pre>
+<div class="callout">
+  <div class="callout-title">The push carries no message content — and it doesn't need to</div>
+  <p style="margin-bottom:0;">Messages are end-to-end encrypted, so the server cannot put the plaintext in the push payload even if it wanted to. The push is just a nudge. <strong>Android:</strong> a high-priority FCM data message wakes WhatsApp in the background → it opens its socket → runs the normal cursor-based sync → decrypts locally → posts the real notification with content. <strong>iOS:</strong> APNs delivers to WhatsApp's Notification Service Extension, which gets a short window to connect, pull, and decrypt, then rewrites the notification text; if it can't finish in time you see a generic "Message" until you open the app. Either way the content path is still "client connects and pulls from the durable store" — the push just makes that happen in seconds instead of on next app open.</p>
+</div>
+<div class="callout edge">
+  <div class="callout-title">Edge case: device is offline too, so the push can't be delivered right now</div>
+  <p style="margin-bottom:0;">APNs/FCM store the pending push and retry when the device reconnects (with a limited TTL, and only the last push coalesced for some types). If it expires, nothing is lost — the message is still in the durable store, and the client's reconnect-sync picks it up regardless of whether any push ever landed. The push layer has exactly the same status as the real-time pub/sub bus from Deep Dive 2: a best-effort accelerant, never the thing that has to be right.</p>
+</div>
+
+<h3>Deep dive 7: The control plane — group creation, profile edits, and media don't all take the message path</h3>
+<div class="badge-row"><span class="badge">Pattern: one multiplexed socket for control + real-time data, separate HTTPS for bulk bytes</span></div>
+
+<p>Everything so far has been about <code>message</code> delivery. But "create a group," "rename a group," "change my profile photo," "set my about text" also have to travel somewhere. Mostly they take the <em>same</em> WebSocket — they're just different frame types on a multiplexed protocol (a binary, tokenized descendant of XMPP). It's worth being able to name the categories:</p>
+
+<table>
+  <tr><th>Frame type</th><th>Direction</th><th>Carries</th></tr>
+  <tr><td><code>message</code></td><td>client ↔ server</td><td>Chat messages — the delivery path from v1–v4</td></tr>
+  <tr><td><code>iq</code> (info/query)</td><td>request → response</td><td>RPC-style actions: <strong>create group, add/remove participant, change subject/icon, set profile name / about, fetch group metadata, register push token, change privacy settings</strong></td></tr>
+  <tr><td><code>notification</code></td><td>server → client</td><td>"Something changed that affects you" — someone added you to a group, changed the group subject, rotated their profile photo. Pushed to other members' sockets, or queued for offline members using the <em>same</em> offline-store + push mechanism as chat</td></tr>
+  <tr><td><code>presence</code> / <code>receipt</code> / <code>ack</code></td><td>client ↔ server</td><td>Online/typing/last-seen; delivered &amp; read receipts; protocol-level acknowledgements</td></tr>
+</table>
+
+<p>So "create a group" is: client sends an <code>iq set</code> over its existing socket → server creates the group, replies with an <code>iq result</code> → server emits a <code>notification</code> to every other member (live socket if connected, offline queue + push if not). It reuses the fan-out machinery from v4 — the payload is just a group-metadata change instead of a chat message.</p>
+
+<h4>Where a genuinely different transport is used</h4>
+<table>
+  <tr><th>Operation</th><th>Transport</th></tr>
+  <tr><td>Group create, participant changes, subject/description (text)</td><td>WebSocket <code>iq</code></td></tr>
+  <tr><td>Set profile name / about (text)</td><td>WebSocket <code>iq</code></td></tr>
+  <tr><td><strong>Upload profile photo / group icon / any photo, video, audio, document</strong></td><td><strong>Separate HTTPS blob service.</strong> Client encrypts the file, uploads ciphertext to the media servers over plain HTTPS, then the socket only carries the resulting URL + media key + SHA-256. Big bytes never touch the WebSocket.</td></tr>
+  <tr><td>Media download</td><td>HTTPS GET from the media CDN, decrypt with the key received over the socket</td></tr>
+  <tr><td>Registration / SMS-OTP verification</td><td>Stateless HTTPS REST — there is no authenticated session or socket yet at that point</td></tr>
+  <tr><td>Encrypted chat backup</td><td>Straight to iCloud / Google Drive — outside WhatsApp's servers entirely</td></tr>
+</table>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 372" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <defs>
+    <marker id="a7b" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#34b7f1"/></marker>
+    <marker id="a7g" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#25d366"/></marker>
+    <marker id="a7m" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#6b7280"/></marker>
+    <marker id="a7a" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#d4a72c"/></marker>
+  </defs>
+
+  <rect x="24" y="140" width="140" height="92" rx="10" fill="#1d212b" stroke="#2a2f3a"/>
+  <text x="94" y="182" text-anchor="middle" fill="#fff" font-size="13">Client (app)</text>
+  <text x="94" y="200" text-anchor="middle" fill="#9aa4b2" font-size="9">one device</text>
+
+  <!-- WebSocket lane -->
+  <rect x="330" y="14" width="380" height="132" rx="10" fill="#171a21" stroke="#34b7f1" stroke-width="1.4"/>
+  <text x="520" y="36" text-anchor="middle" fill="#fff" font-size="12.5">Connection Server — ONE persistent WebSocket</text>
+  <text x="520" y="55" text-anchor="middle" fill="#9aa4b2" font-size="9.5">multiplexed frame types on the same socket:</text>
+  <text x="520" y="76" text-anchor="middle" fill="#5fe08a" font-size="10"><tspan font-weight="bold">message</tspan>  ·  <tspan font-weight="bold">presence / receipt / ack</tspan></text>
+  <text x="520" y="97" text-anchor="middle" fill="#7cc7f5" font-size="10"><tspan font-weight="bold">iq</tspan> (request→response): create group, add / remove</text>
+  <text x="520" y="111" text-anchor="middle" fill="#7cc7f5" font-size="10">member, rename, set profile name / about, push token</text>
+  <text x="520" y="132" text-anchor="middle" fill="#e6c25c" font-size="10"><tspan font-weight="bold">notification</tspan> (server→client): "X changed" → fan-out</text>
+
+  <!-- Media lane -->
+  <rect x="330" y="168" width="380" height="74" rx="10" fill="#171a21" stroke="#25d366" stroke-width="1.4"/>
+  <text x="520" y="191" text-anchor="middle" fill="#fff" font-size="12.5">HTTPS Media / Blob Service (separate)</text>
+  <text x="520" y="209" text-anchor="middle" fill="#9aa4b2" font-size="9.5">profile photo, group icon, any photo / video / audio / doc</text>
+  <text x="520" y="226" text-anchor="middle" fill="#6b7280" font-size="9">client-encrypted upload; socket carries only URL + media key + SHA-256</text>
+
+  <!-- REST lane -->
+  <rect x="330" y="264" width="380" height="66" rx="10" fill="#171a21" stroke="#2a2f3a"/>
+  <text x="520" y="287" text-anchor="middle" fill="#fff" font-size="12.5">HTTPS REST — stateless</text>
+  <text x="520" y="305" text-anchor="middle" fill="#9aa4b2" font-size="9.5">registration / SMS-OTP verification — no session or socket exists yet</text>
+
+  <!-- other members -->
+  <rect x="760" y="30" width="120" height="66" rx="10" fill="#1d212b" stroke="#2a2f3a"/>
+  <text x="820" y="55" text-anchor="middle" fill="#fff" font-size="11">other members</text>
+  <text x="820" y="71" text-anchor="middle" fill="#6b7280" font-size="8.5">live socket, or</text>
+  <text x="820" y="83" text-anchor="middle" fill="#6b7280" font-size="8.5">offline queue + push</text>
+
+  <!-- connectors: client -> lanes (orthogonal elbows) -->
+  <path d="M164,168 H247 V80 H326" fill="none" stroke="#34b7f1" stroke-width="1.7" marker-end="url(#a7b)"/>
+  <text x="247" y="150" text-anchor="middle" fill="#9aa4b2" font-size="9.5">persistent</text>
+  <text x="247" y="162" text-anchor="middle" fill="#9aa4b2" font-size="9.5">WebSocket</text>
+
+  <line x1="164" y1="200" x2="326" y2="203" stroke="#25d366" stroke-width="1.7" marker-end="url(#a7g)"/>
+  <text x="245" y="192" text-anchor="middle" fill="#9aa4b2" font-size="9.5">upload / download</text>
+
+  <path d="M164,220 H247 V295 H326" fill="none" stroke="#6b7280" stroke-width="1.6" marker-end="url(#a7m)"/>
+  <text x="247" y="255" text-anchor="middle" fill="#9aa4b2" font-size="9.5">one-off call</text>
+
+  <!-- notification fan-out -->
+  <line x1="710" y1="70" x2="756" y2="63" stroke="#d4a72c" stroke-width="1.6" marker-end="url(#a7a)"/>
+  <text x="733" y="112" text-anchor="middle" fill="#9aa4b2" font-size="9">reuses v4</text>
+  <text x="733" y="123" text-anchor="middle" fill="#9aa4b2" font-size="9">fan-out</text>
+</svg>
+</div>
+<div class="diagram-caption">Deep Dive 7 — group and profile edits are <code>iq</code> RPCs on the very same socket as chat, and <code>notification</code> fan-out to other members reuses the v4 machinery. Only bulk bytes (media) and bootstrap (signup / OTP) take a separate HTTPS path.</div>
+
+<div class="callout">
+  <div class="callout-title">The mental model to state in an interview</div>
+  <p style="margin-bottom:0;"><strong>Control plane + real-time data plane → one persistent socket</strong>, where actions are request/response <code>iq</code> RPCs and "someone else changed something" arrives as a <code>notification</code> that fans out exactly like a message. <strong>Bulk bytes (any attachment, including profile and group images) → a separate HTTPS media service</strong> with client-side encryption; the socket only ever carries a pointer and a key. <strong>Bootstrap (signup, OTP) → stateless HTTPS REST</strong>, because no session exists yet. Group and profile edits are "different" only in being <code>iq</code> RPCs rather than <code>message</code> frames — same connection, same offline-queue-plus-push fan-out to everyone else.</p>
+</div>
+
+<h3>Deep dive 8: Delivery &amp; read receipts, and the presence / typing channel</h3>
+<div class="badge-row"><span class="badge">Pattern: receipts are just messages flowing backwards + ephemeral presence that never persists</span></div>
+
+<p>The single ✓, double ✓✓, and blue ✓✓ are not a separate subsystem — each one is <strong>a tiny message travelling back along the exact same routing path the original message took, in the opposite direction</strong>. A receipt is its own frame type (<code>receipt</code>) carrying a <em>type</em> (<code>delivery</code> / <code>read</code> / <code>played</code>) and the target message id(s). Everything built in v2–v4 — persist-first, registry lookup, per-gateway pub/sub, offline queue — is reused wholesale, just with sender and recipient swapped.</p>
+
+<h4>The four states of an outbound message</h4>
+<table>
+  <tr><th>UI</th><th>Meaning</th><th>Who emits the signal</th><th>Can the recipient suppress it?</th></tr>
+  <tr><td>🕓 clock</td><td>Not yet acknowledged by the server (still on the sender's device)</td><td>— (local only)</td><td>n/a</td></tr>
+  <tr><td>✓ single</td><td>Server received &amp; <strong>durably persisted</strong> the message</td><td>Sender's own gateway, via the protocol <code>ack</code></td><td>No</td></tr>
+  <tr><td>✓✓ grey</td><td>Message reached at least one of the recipient's devices</td><td>Recipient's client, automatically on receipt</td><td>No</td></tr>
+  <tr><td>✓✓ blue</td><td>Recipient actually opened the chat / the message entered the viewport (<code>played</code> for a listened voice note)</td><td>Recipient's client, on foregrounding the conversation</td><td>Yes — the "Read receipts" privacy setting</td></tr>
+</table>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 900 470" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <defs>
+    <marker id="a8b" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#34b7f1"/></marker>
+    <marker id="a8g" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#25d366"/></marker>
+    <marker id="a8a" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#d4a72c"/></marker>
+    <marker id="a8m" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#6b7280"/></marker>
+  </defs>
+
+  <g stroke="#2a2f3a" stroke-width="1" stroke-dasharray="3,5">
+    <line x1="110" y1="66" x2="110" y2="432"/>
+    <line x1="360" y1="66" x2="360" y2="432"/>
+    <line x1="610" y1="66" x2="610" y2="432"/>
+    <line x1="830" y1="66" x2="830" y2="432"/>
+  </g>
+
+  <g>
+    <rect x="40" y="20" width="140" height="42" rx="8" fill="#171a21" stroke="#34b7f1" stroke-width="1.3"/>
+    <text x="110" y="39" text-anchor="middle" fill="#fff" font-size="12">Alice</text>
+    <text x="110" y="54" text-anchor="middle" fill="#9aa4b2" font-size="9">sender's client</text>
+
+    <rect x="290" y="20" width="140" height="42" rx="8" fill="#171a21" stroke="#2a2f3a"/>
+    <text x="360" y="39" text-anchor="middle" fill="#fff" font-size="12">Alice's gateway</text>
+    <text x="360" y="54" text-anchor="middle" fill="#9aa4b2" font-size="9">+ Message Store</text>
+
+    <rect x="540" y="20" width="140" height="42" rx="8" fill="#171a21" stroke="#2a2f3a"/>
+    <text x="610" y="39" text-anchor="middle" fill="#fff" font-size="12">Bob's gateway</text>
+    <text x="610" y="54" text-anchor="middle" fill="#9aa4b2" font-size="9">registry + pub/sub</text>
+
+    <rect x="760" y="20" width="140" height="42" rx="8" fill="#171a21" stroke="#34b7f1" stroke-width="1.3"/>
+    <text x="830" y="39" text-anchor="middle" fill="#fff" font-size="12">Bob</text>
+    <text x="830" y="54" text-anchor="middle" fill="#9aa4b2" font-size="9">recipient's client</text>
+  </g>
+
+  <g font-size="10.5" fill="#c9cdd4">
+    <line x1="110" y1="100" x2="354" y2="100" stroke="#34b7f1" stroke-width="1.6" marker-end="url(#a8b)"/>
+    <text x="232" y="93" text-anchor="middle">1 · send message (client_msg_id)</text>
+
+    <line x1="360" y1="140" x2="116" y2="140" stroke="#6b7280" stroke-width="1.6" stroke-dasharray="5,4" marker-end="url(#a8m)"/>
+    <text x="238" y="133" text-anchor="middle">2 · ack — renders ✓ (server persisted)</text>
+
+    <line x1="360" y1="180" x2="604" y2="180" stroke="#25d366" stroke-width="1.6" marker-end="url(#a8g)"/>
+    <text x="482" y="173" text-anchor="middle">3 · route: registry lookup + pub/sub publish</text>
+
+    <line x1="610" y1="220" x2="824" y2="220" stroke="#34b7f1" stroke-width="1.6" marker-end="url(#a8b)"/>
+    <text x="717" y="213" text-anchor="middle">4 · push down Bob's socket</text>
+
+    <line x1="830" y1="260" x2="616" y2="260" stroke="#d4a72c" stroke-width="1.6" marker-end="url(#a8a)"/>
+    <text x="723" y="253" text-anchor="middle">5 · auto receipt (type=delivery)</text>
+
+    <line x1="610" y1="300" x2="116" y2="300" stroke="#25d366" stroke-width="1.6" marker-end="url(#a8g)"/>
+    <text x="360" y="293" text-anchor="middle">6 · receipt routed back the same way → Alice renders ✓✓ grey</text>
+  </g>
+
+  <line x1="70" y1="332" x2="878" y2="332" stroke="#2a2f3a" stroke-width="1" stroke-dasharray="4,4"/>
+  <text x="474" y="328" text-anchor="middle" fill="#6b7280" font-size="9.5">— Bob foregrounds the conversation —</text>
+
+  <g font-size="10.5" fill="#c9cdd4">
+    <line x1="830" y1="366" x2="616" y2="366" stroke="#d4a72c" stroke-width="1.6" marker-end="url(#a8a)"/>
+    <text x="723" y="359" text-anchor="middle">7 · receipt (type=read)</text>
+
+    <line x1="610" y1="406" x2="116" y2="406" stroke="#25d366" stroke-width="1.6" marker-end="url(#a8g)"/>
+    <text x="360" y="399" text-anchor="middle">8 · routed back → Alice renders ✓✓ blue — one receipt covers "read up to seq N"</text>
+  </g>
+
+  <g font-size="9.5" fill="#9aa4b2">
+    <line x1="150" y1="452" x2="180" y2="452" stroke="#34b7f1" stroke-width="2"/><text x="186" y="455">message / delivery push</text>
+    <line x1="360" y1="452" x2="390" y2="452" stroke="#25d366" stroke-width="2"/><text x="396" y="455">routing (registry + pub/sub)</text>
+    <line x1="600" y1="452" x2="630" y2="452" stroke="#d4a72c" stroke-width="2"/><text x="636" y="455">receipt emitted by recipient</text>
+  </g>
+</svg>
+</div>
+<div class="diagram-caption">Deep Dive 8 — a receipt is just a <code>receipt</code>-type frame that Bob's client emits and that rides the same registry + pub/sub path back to Alice. Read receipts are <strong>coalesced</strong>: step 8 carries a single "read up to seq N", not one receipt per message.</div>
+
+<h4>Why read receipts are cheap: coalescing</h4>
+<p>A naive design sends one read receipt per message — open a chat with 200 unread messages and the recipient's client fires 200 receipts. WhatsApp instead sends a <strong>single cumulative receipt</strong>: <code>{ type: read, conversation: C, up_to_seq: 4830 }</code>. The sender's client marks every message with <code>seq ≤ 4830</code> as read in one shot. Delivery receipts are batched too — a client coming back online after receiving 50 queued messages sends a handful of range receipts, not 50.</p>
+
+<h4>Storage: high-watermark, not a row per message</h4>
+<pre>Per conversation, per participant, the server keeps:
+    delivered_up_to_seq : 4830     (advanced when a delivery receipt arrives)
+    read_up_to_seq      : 4825     (advanced when a read receipt arrives)</pre>
+<p>Two integers per (conversation, participant) — not one status row per (message, participant). The sender's "Message info" screen for a 1:1 chat is then a trivial read of those two watermarks. This also means receipts are <strong>idempotent and monotonic</strong>: a receipt that would move a watermark backwards (out-of-order delivery, duplicate) is simply ignored.</p>
+
+<div class="callout edge">
+  <div class="callout-title">Multi-device: when is a message "delivered" / "read"?</div>
+  <p style="margin-bottom:0;"><strong>Delivered</strong> = it reached <em>any one</em> of the recipient's devices (first device to receive it emits the delivery receipt; the others are silent). <strong>Read</strong> = read on <em>any one</em> device — and that read state then syncs to the reader's <em>own</em> other devices too, so reading on your phone clears the unread badge on your desktop. That cross-device sync is the same read-receipt frame, just fanned out to the reader's own device set (the "registry is a set, not a scalar" point from Deep Dive 3) instead of only back to the sender.</p>
+</div>
+
+<h4>Groups: the receipt fan-in problem</h4>
+<p>In an N-member group, every recipient emits a delivery receipt and (eventually) a read receipt <em>for every message</em>. Routed naively, one message into a 512-person group generates up to ~1022 receipt frames converging on the sender. Mitigations, roughly in order of importance:</p>
+<ul>
+  <li><strong>Receipts go only to the original sender</strong>, never fanned out to the whole group — other members don't need to know that Carol received Alice's message.</li>
+  <li><strong>The sender's client only needs counts</strong> for the "Message info" screen (<em>"Delivered to 340, read by 210"</em>), not per-member state in the timeline — so the sender's gateway can aggregate incoming receipts into counters and push the sender periodic summary updates rather than 1022 individual events.</li>
+  <li><strong>Recipients batch aggressively</strong> — coalesced range receipts as above, plus a short delay so one receipt covers a burst of messages.</li>
+  <li><strong>Above a group-size threshold, per-message delivered/read tracking is dropped entirely</strong> — the "Message info" screen just isn't offered for very large groups, which removes the fan-in cost at the source.</li>
+</ul>
+
+<h4>Privacy gating — same reciprocal rule as last seen</h4>
+<p>The "Read receipts" toggle is <strong>mutual</strong>: turn it off and you stop sending blue ticks <em>and</em> stop seeing others' blue ticks. So the read path checks both parties' settings before rendering blue, exactly like the last-seen reciprocity check in Deep Dive 5. Two carve-outs: <strong>delivery receipts (✓✓ grey) can never be disabled</strong>, and <strong>read receipts in groups always apply</strong> regardless of the toggle (and only surface on the Message-info screen).</p>
+
+<h4>The presence &amp; typing channel: ephemeral, never persisted, never queued</h4>
+<p>"online", "last seen…", and "typing…" travel as <code>presence</code> frames (<code>available</code> / <code>unavailable</code> / <code>composing</code> / <code>paused</code>). This channel is deliberately the opposite of the message channel in every way:</p>
+<table>
+  <tr><th></th><th>Message / receipt</th><th>Presence / typing</th></tr>
+  <tr><td>Durability</td><td>Persist-first, always</td><td>Never written to disk — pure in-memory routing</td></tr>
+  <tr><td>If recipient offline</td><td>Queued, delivered on sync</td><td>Dropped silently — a "typing" event has no meaning 5 minutes later</td></tr>
+  <tr><td>Fan-out scope</td><td>All conversation members / sender</td><td>Only clients that have declared "I have this chat open right now" (subscribe on chat-open, unsubscribe on navigate-away)</td></tr>
+  <tr><td>Cleanup on socket drop</td><td>Registry entry TTLs out; last-seen written</td><td>Nothing to clean — subscribers apply a client-side ~10 s TTL so a lost <code>paused</code> can't leave "typing…" stuck forever</td></tr>
+</table>
+<p>The routing mechanism is still the v3 pub/sub bus — a <code>presence</code> event for Bob is published to the gateways holding sockets for users currently subscribed to Bob's presence, and pushed down only those sockets. The scoping (only people looking at the chat) is what stops a business account with 100k contacts from triggering a 100k-way fan-out every time it connects, the trap called out in Deep Dive 5.</p>
+
+<h2 id="edgecases"><span class="qmark">Q:</span> What other edge cases are worth raising unprompted?</h2>
+
+
+<div class="grid2">
+
+<div class="panel">
+  <h4 style="margin-top:0;">Read receipts arriving before delivery receipts</h4>
+  <p>Bob's phone was offline, syncs 50 messages at once, and his client marks the last one "read" as soon as he opens the chat — before the server has even finished processing "delivered" state for message #12 of 50.</p>
+  <p style="margin-bottom:0;"><strong>Answer:</strong> Treat read-state as a high-water mark, not a per-message flag needing sequential confirmation. "Read up to seq N" implies delivered-up-to-N as well — the server can infer and backfill delivered status for anything at or before the read cursor rather than requiring each intermediate delivered-ack individually.</p>
+</div>
+
+<div class="panel">
+  <h4 style="margin-top:0;">Message sent to a group member who left the group mid-flight</h4>
+  <p>Fan-out job reads the member list at T0, starts pushing; a member leaves at T0+2s, fan-out job (using a slightly stale cached member list) still tries to deliver to them.</p>
+  <p style="margin-bottom:0;"><strong>Answer:</strong> Not a correctness bug worth over-engineering — worst case, a departed member's client receives one extra message for a group they just left, and the client-side UI simply won't render messages for groups it's not currently a member of. Consistency here can be eventual; trying to make group-membership-at-fan-out-time perfectly atomic with group-membership-changes is solving a problem users never notice.</p>
+</div>
+
+<div class="panel">
+  <h4 style="margin-top:0;">Clock skew across devices for message ordering</h4>
+  <p>Alice's phone clock is 3 minutes fast. If ordering relied on client-reported timestamps, her messages would appear to arrive "from the future" relative to everyone else.</p>
+  <p style="margin-bottom:0;"><strong>Answer:</strong> This is exactly why Decision 1 uses <strong>server-assigned sequence numbers</strong>, not client timestamps, as the authoritative order. Client timestamps are stored for display purposes only ("sent at 3:42 PM") — they never drive ordering or sync logic.</p>
+</div>
+
+<div class="panel">
+  <h4 style="margin-top:0;">Sending a message to someone who blocked you</h4>
+  <p>Should the message be accepted and silently dropped, or should the sender get an error?</p>
+  <p style="margin-bottom:0;"><strong>Answer:</strong> Accept and silently no-op on the delivery side (return a normal "sent ✓" to the blocker's blockee) — this is a deliberate product/privacy decision common to messaging apps: revealing "message not delivered because you were blocked" leaks the block itself, which defeats the purpose of blocking. Worth naming explicitly since it's a case where the "correct" engineering answer is shaped by a product/privacy requirement, not a technical constraint.</p>
+</div>
+
+<div class="panel">
+  <h4 style="margin-top:0;">Thundering herd on reconnect after a regional outage</h4>
+  <p>A data center blip drops millions of WebSocket connections simultaneously. All clients try to reconnect + sync at once.</p>
+  <p style="margin-bottom:0;"><strong>Answer:</strong> Client-side reconnect with jittered exponential backoff (never all-at-once retry), and gateway-side connection-accept rate limiting per instance with graceful shedding (reject-with-retry-after rather than accept-and-fall-over). The sync-fetch itself should be paginated/bounded per request so a client with weeks of backlog doesn't send one giant query that stalls a database connection.</p>
+</div>
+
+<div class="panel">
+  <h4 style="margin-top:0;">Same user, message ordering across multiple devices sending simultaneously</h4>
+  <p>Alice replies from her phone and, a second later without realizing, also replies from her laptop — both in the same conversation.</p>
+  <p style="margin-bottom:0;"><strong>Answer:</strong> Both are just two independent messages competing for sequence numbers in the same conversation, resolved by whichever hits the single-writer sequencer for that conversation first (Decision 1's "Great" tier). No special-casing needed — "same user, different device" isn't semantically different from "two different users" at the ordering layer.</p>
+</div>
+
+</div>
+
+<h2 id="rubric"><span class="qmark">Q:</span> How would this be graded across levels?</h2>
+<p class="lead">What follows is not "what's the minimum to pass" — it's what a strong candidate should be volunteering <em>unprompted</em> at each level, specifically for a messaging system.</p>
+
+<div class="rubric-level mid">
+  <h4>Mid-level</h4>
+  <ul style="margin-bottom:0;">
+    <li>Proposes WebSockets over polling with a basic justification (persistent connection, server push)</li>
+    <li>Identifies that messages need to be stored in a database, not just relayed in-memory</li>
+    <li>Recognizes offline users need <em>some</em> handling, even if the first instinct is "retry queue" rather than "persist-first"</li>
+    <li>Can sketch a basic client/server/database diagram for 1:1 messaging</li>
+    <li>Needs prompting to think about what happens with more than one server</li>
+  </ul>
+</div>
+
+<div class="rubric-level senior">
+  <h4>Senior</h4>
+  <ul style="margin-bottom:0;">
+    <li>Proactively identifies that sender and receiver may be on different connection servers and proposes a routing mechanism without being asked</li>
+    <li>Distinguishes at-least-once delivery + client dedup from (impossible) exactly-once delivery, unprompted</li>
+    <li>Designs the sync-on-reconnect mechanism with a client-side cursor, recognizing it as the actual offline-handling story rather than a bolted-on retry service</li>
+    <li>Understands group messaging needs async fan-out, not synchronous N writes on the send path</li>
+    <li>Can discuss Redis vs Kafka trade-offs for the pub/sub layer with at least a surface justification</li>
+    <li>Distinguishes WhatsApp's own WebSocket from the OS push channel (APNs/FCM), and knows a background/killed app is reached by a push that wakes it to sync — not by content in the push payload</li>
+  </ul>
+</div>
+
+<div class="rubric-level staff">
+  <h4>Staff+</h4>
+  <ul style="margin-bottom:0;">
+    <li>Frames the entire system around one invariant stated early and never violated: <strong>durability happens unconditionally before any delivery attempt</strong> — and shows how this single invariant is what makes offline handling, gateway crashes, and stale registry entries all "non-events" instead of special cases requiring separate subsystems</li>
+    <li>Explicitly separates <strong>causal ordering per conversation</strong> from global ordering, and explains why global ordering is neither achievable nor necessary — showing awareness of what guarantee is actually being sold to the user</li>
+    <li>Treats the connection registry as a cache/hint that must be safe-by-design even when stale, rather than something requiring perfect consistency — and names the specific mechanism (verify-on-push-failure) that makes staleness a latency problem, not a correctness problem</li>
+    <li>Reasons about multi-device as "the registry maps to a set, not a scalar" rather than treating it as an afterthought bolted on at the end</li>
+    <li>Can articulate precisely which layer needs to be durable (message store) vs. which layer can be best-effort/lossy (the real-time push bus) and why conflating the two either wastes infrastructure cost or creates false confidence</li>
+    <li>Proactively raises the group fan-out cost curve and proposes the push/pull hybrid threshold for large groups without being asked "what about a 1000-person group"</li>
+    <li>Discusses partition/topic design trade-offs for the pub/sub layer at the operational level (rebalancing on gateway autoscale events), not just "we use Kafka"</li>
+    <li>Separates the control plane from the message path — group/profile edits as <code>iq</code> RPCs and <code>notification</code> fan-out over the same socket, with media on a separate encrypted HTTPS blob service and signup on stateless REST — rather than assuming one pipe carries everything</li>
+  </ul>
+</div>
+
+<div class="footer-note">
+  HLD reference document · WhatsApp-style real-time messaging system · Format: incremental build-up, Bad→Good→Great key decisions, pattern-anchored deep dives
+</div>
+
+</div>
+</body>
+</html>

@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WhatsApp Message Flow — Live Animation</title>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --panel2:#1d212b; --border:#2a2f3a;
+    --text:#e8eaed; --muted:#9aa4b2; --accent:#25d366; --accent2:#34b7f1;
+    --warn:#d4a72c; --bad:#e5534b; --code-bg:#11141a;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;
+    padding:20px;
+  }
+  .wrap{max-width:1180px; margin:0 auto;}
+  h1{font-size:1.5rem; margin:0 0 4px 0; letter-spacing:-0.02em;}
+  .subtitle{color:var(--muted); font-size:0.92rem; margin-bottom:18px;}
+
+  /* Controls */
+  .controls{
+    display:flex; align-items:center; gap:10px; margin-bottom:18px;
+    background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:12px 16px;
+    flex-wrap:wrap;
+  }
+  button{
+    background:var(--panel2); color:var(--text); border:1px solid var(--border);
+    border-radius:8px; padding:8px 16px; font-size:0.85rem; cursor:pointer; font-weight:600;
+    transition:all .15s;
+  }
+  button:hover{border-color:var(--accent2); background:#232838;}
+  button:disabled{opacity:0.35; cursor:not-allowed;}
+  button.primary{background:var(--accent); color:#05230f; border-color:var(--accent);}
+  button.primary:hover{background:#2ee273;}
+  .scenario-select{display:flex; gap:6px; margin-left:auto; flex-wrap:wrap;}
+  .scenario-btn{
+    background:var(--panel2); color:var(--muted); border:1px solid var(--border);
+    border-radius:20px; padding:6px 14px; font-size:0.78rem; cursor:pointer;
+  }
+  .scenario-btn.active{background:rgba(37,211,102,0.15); color:var(--accent); border-color:var(--accent);}
+
+  .step-indicator{color:var(--muted); font-size:0.8rem; min-width:90px;}
+
+  /* Narration bar */
+  .narration{
+    background:var(--panel); border:1px solid var(--border); border-left:4px solid var(--accent2);
+    border-radius:0 10px 10px 0; padding:14px 18px; margin-bottom:18px; min-height:26px;
+    font-size:0.95rem; color:#dfe2e7; transition:all .2s;
+  }
+  .narration .tag{
+    display:inline-block; background:rgba(52,183,241,0.15); color:var(--accent2);
+    font-size:0.68rem; font-weight:700; letter-spacing:0.04em; padding:2px 8px;
+    border-radius:20px; margin-right:8px; text-transform:uppercase; vertical-align:middle;
+  }
+
+  /* Main stage */
+  .stage{
+    background:var(--panel); border:1px solid var(--border); border-radius:12px;
+    padding:24px; margin-bottom:18px; overflow-x:auto;
+  }
+  svg{display:block; margin:0 auto;}
+
+  /* Bottom panels: Redis state + Event log */
+  .bottom-grid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px;}
+  @media(max-width:960px){.bottom-grid{grid-template-columns:1fr;}}
+
+  .panel{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    padding:16px 18px; min-height:220px;
+  }
+  .panel-title{
+    font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;
+    color:var(--muted); margin-bottom:10px; display:flex; align-items:center; gap:8px;
+  }
+  .dot{width:8px; height:8px; border-radius:50%; display:inline-block;}
+  .dot-registry{background:var(--warn);}
+  .dot-pubsub{background:var(--accent);}
+  .dot-store{background:var(--accent2);}
+
+  table.kv{width:100%; border-collapse:collapse; font-size:0.78rem; font-family:'SF Mono',Consolas,Monaco,monospace;}
+  table.kv td{padding:5px 6px; border-bottom:1px solid var(--border); color:#c9cdd4; vertical-align:top;}
+  table.kv tr.fresh td{animation:flashIn 1s ease-out;}
+  table.kv tr.stale td{color:#6b7280; text-decoration:line-through; opacity:0.5;}
+  table.kv .k{color:var(--accent2); white-space:nowrap;}
+  table.kv .v{color:#c9cdd4; word-break:break-all;}
+  @keyframes flashIn{
+    0%{background:rgba(37,211,102,0.35);}
+    100%{background:transparent;}
+  }
+
+  .empty-state{color:#6b7280; font-size:0.8rem; font-style:italic; padding:8px 0;}
+
+  .log-entry{
+    font-family:'SF Mono',Consolas,Monaco,monospace; font-size:0.74rem; padding:6px 8px;
+    border-radius:6px; margin-bottom:6px; border-left:3px solid var(--border);
+    background:var(--code-bg); color:#9aa4b2; opacity:0; animation:logIn .4s ease-out forwards;
+  }
+  @keyframes logIn{ from{opacity:0; transform:translateY(-4px);} to{opacity:1; transform:translateY(0);} }
+  .log-entry.persist{border-left-color:var(--accent2); color:#8fd6a8;}
+  .log-entry.publish{border-left-color:var(--accent); color:#7fe0a0;}
+  .log-entry.deliver{border-left-color:var(--warn); color:#e6c25c;}
+  .log-entry.drop{border-left-color:var(--bad); color:#f28b84;}
+  .log-list{max-height:170px; overflow-y:auto;}
+
+  .msg-store-row{
+    font-family:'SF Mono',Consolas,Monaco,monospace; font-size:0.74rem; padding:6px 8px;
+    background:var(--code-bg); border-radius:6px; margin-bottom:5px; color:#8fd6a8;
+    border:1px solid var(--border);
+  }
+
+  .footer-note{margin-top:24px; padding-top:16px; border-top:1px solid var(--border); color:var(--muted); font-size:0.8rem;}
+  .legend{display:flex; gap:16px; flex-wrap:wrap; font-size:0.75rem; color:var(--muted); margin-top:10px;}
+  .legend span{display:flex; align-items:center; gap:5px;}
+  .legend .sw{width:14px; height:3px; display:inline-block; border-radius:2px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>WhatsApp Message Flow — Interactive Walkthrough</h1>
+  <div class="subtitle">Step through the real send → persist → publish → deliver flow, with actual Redis key-value state and pub/sub events shown live. Recommended-at-scale design: connection registry + hash-partitioned-by-gateway pub/sub bus.</div>
+
+  <div class="controls">
+    <button id="prevBtn">&larr; Prev</button>
+    <button id="playBtn" class="primary">&#9654; Play</button>
+    <button id="nextBtn">Next &rarr;</button>
+    <button id="resetBtn">&#8635; Reset</button>
+    <span class="step-indicator" id="stepIndicator">Step 0 / 0</span>
+    <div class="scenario-select" id="scenarioSelect"></div>
+  </div>
+
+  <div class="narration" id="narration"><span class="tag">Ready</span>Press Play or step through manually to begin.</div>
+
+  <div class="stage">
+    <svg id="mainSvg" viewBox="0 0 1120 380" xmlns="http://www.w3.org/2000/svg"></svg>
+  </div>
+
+  <div class="bottom-grid">
+    <div class="panel">
+      <div class="panel-title"><span class="dot dot-registry"></span>Connection Registry (Redis)</div>
+      <table class="kv" id="registryTable"><tbody></tbody></table>
+      <div class="empty-state" id="registryEmpty">No entries yet.</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title"><span class="dot dot-pubsub"></span>Pub/Sub Event Log</div>
+      <div class="log-list" id="pubsubLog"></div>
+      <div class="empty-state" id="pubsubEmpty">No events yet.</div>
+    </div>
+    <div class="panel">
+      <div class="panel-title"><span class="dot dot-store"></span>Durable Message Store</div>
+      <div id="messageStore"></div>
+      <div class="empty-state" id="storeEmpty">No messages persisted yet.</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><span class="sw" style="background:#34b7f1"></span>WebSocket send</span>
+    <span><span class="sw" style="background:#25d366"></span>Persist (durable write)</span>
+    <span><span class="sw" style="background:#d4a72c"></span>Registry lookup</span>
+    <span><span class="sw" style="background:#25d366"></span>Pub/Sub publish</span>
+    <span><span class="sw" style="background:#e5534b"></span>Dropped / offline path</span>
+  </div>
+
+  <div class="footer-note">
+    Scenario switcher covers: (1) Online delivery, same-region gateways &nbsp;•&nbsp; (2) Offline recipient — persist-only path &nbsp;•&nbsp; (3) Group fan-out across shared gateways.
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   SCENE GRAPH — positions for the 4 actors on the SVG canvas
+   ============================================================ */
+const POS = {
+  alice:      {x: 60,  y: 170, w: 90, h: 55, label: "Alice", sub: "sender"},
+  gw7:        {x: 230, y: 155, w: 130, h: 85, label: "gateway-7", sub: "Alice's Chat Server"},
+  registry:   {x: 460, y: 30,  w: 170, h: 70, label: "Connection Registry", sub: "Redis KV"},
+  store:      {x: 460, y: 280, w: 170, h: 70, label: "Message Store", sub: "durable"},
+  pubsub:     {x: 720, y: 155, w: 170, h: 85, label: "Pub/Sub Bus", sub: "hash-partitioned"},
+  gw3:        {x: 970, y: 155, w: 130, h: 85, label: "gateway-3", sub: "Bob's Chat Server"},
+  bob:        {x: 990, y: 30,  w: 90,  h: 55, label: "Bob", sub: "recipient (online)"},
+  bobOffline: {x: 990, y: 280, w: 100, h: 55, label: "Bob", sub: "recipient (OFFLINE)"}
+};
+
+function svgns(tag){ return document.createElementNS("http://www.w3.org/2000/svg", tag); }
+
+function box(p, opts={}){
+  const g = svgns("g");
+  const r = svgns("rect");
+  r.setAttribute("x", p.x); r.setAttribute("y", p.y);
+  r.setAttribute("width", p.w); r.setAttribute("height", p.h);
+  r.setAttribute("rx", 10);
+  r.setAttribute("fill", opts.fill || "#1d212b");
+  r.setAttribute("stroke", opts.stroke || "#2a2f3a");
+  r.setAttribute("stroke-width", opts.strokeWidth || 1.5);
+  r.setAttribute("opacity", opts.opacity !== undefined ? opts.opacity : 1);
+  r.setAttribute("id", opts.id || "");
+  g.appendChild(r);
+
+  const t1 = svgns("text");
+  t1.setAttribute("x", p.x + p.w/2); t1.setAttribute("y", p.y + p.h/2 - (opts.sub===false?-4:6));
+  t1.setAttribute("text-anchor","middle"); t1.setAttribute("fill", opts.textColor || "#fff");
+  t1.setAttribute("font-size", opts.fontSize || "13"); t1.setAttribute("font-family","sans-serif");
+  t1.setAttribute("font-weight", "600");
+  t1.textContent = p.label;
+  g.appendChild(t1);
+
+  if(p.sub){
+    const t2 = svgns("text");
+    t2.setAttribute("x", p.x + p.w/2); t2.setAttribute("y", p.y + p.h/2 + 14);
+    t2.setAttribute("text-anchor","middle"); t2.setAttribute("fill", "#9aa4b2");
+    t2.setAttribute("font-size","10"); t2.setAttribute("font-family","sans-serif");
+    t2.textContent = p.sub;
+    g.appendChild(t2);
+  }
+  return g;
+}
+
+function arrow(svg, x1,y1,x2,y2, color, id, dashed=false){
+  const defs = svg.querySelector("defs") || (()=>{const d=svgns("defs"); svg.insertBefore(d, svg.firstChild); return d;})();
+  const markerId = "arrow-" + color.replace("#","");
+  if(!defs.querySelector("#"+markerId)){
+    const marker = svgns("marker");
+    marker.setAttribute("id", markerId);
+    marker.setAttribute("markerWidth","9"); marker.setAttribute("markerHeight","9");
+    marker.setAttribute("refX","7"); marker.setAttribute("refY","3"); marker.setAttribute("orient","auto");
+    const path = svgns("path");
+    path.setAttribute("d","M0,0 L7,3 L0,6 Z"); path.setAttribute("fill", color);
+    marker.appendChild(path); defs.appendChild(marker);
+  }
+  const line = svgns("path");
+  const midX = (x1+x2)/2, midY = (y1+y2)/2;
+  line.setAttribute("d", `M${x1},${y1} Q${midX},${midY} ${x2},${y2}`);
+  line.setAttribute("fill","none");
+  line.setAttribute("stroke", color);
+  line.setAttribute("stroke-width","2.5");
+  if(dashed) line.setAttribute("stroke-dasharray","5,4");
+  line.setAttribute("marker-end", `url(#${markerId})`);
+  line.setAttribute("id", id || "");
+  line.style.opacity = 0;
+  svg.appendChild(line);
+  return line;
+}
+
+function label(svg, x, y, text, color, id){
+  const t = svgns("text");
+  t.setAttribute("x", x); t.setAttribute("y", y);
+  t.setAttribute("text-anchor","middle"); t.setAttribute("fill", color || "#9aa4b2");
+  t.setAttribute("font-size","10.5"); t.setAttribute("font-family","sans-serif"); t.setAttribute("font-weight","600");
+  t.textContent = text;
+  t.style.opacity = 0;
+  t.setAttribute("id", id || "");
+  svg.appendChild(t);
+  return t;
+}
+
+function packet(svg, x, y, color, id){
+  const c = svgns("circle");
+  c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 6);
+  c.setAttribute("fill", color); c.setAttribute("id", id || "");
+  c.style.opacity = 0;
+  svg.appendChild(c);
+  return c;
+}
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let registryState = {};   // user_id -> {gateway, conn}
+let messageStore = [];    // list of persisted messages
+let pubsubLog = [];       // list of log entries {type, text}
+let seqCounter = 4820;
+
+function resetState(){
+  registryState = { bob: {gateway:"gateway-3", conn:"c_9f3a"} };
+  messageStore = [];
+  pubsubLog = [];
+  seqCounter = 4820;
+}
+
+/* ============================================================
+   SCENARIOS — each is an array of steps.
+   Each step: { narrate, tag, draw(svg, ctx), sideEffects(ctx) }
+   ============================================================ */
+
+function drawBaseActors(svg, opts={}){
+  svg.innerHTML = "";
+  svg.appendChild(box(POS.alice, {fill:"#1d212b"}));
+  svg.appendChild(box(POS.gw7, {fill:"#171a21", stroke:"#34b7f1"}));
+  svg.appendChild(box(POS.registry, {fill:"#171a21", stroke:"#d4a72c"}));
+  svg.appendChild(box(POS.store, {fill:"#171a21", stroke:"#34b7f1"}));
+  svg.appendChild(box(POS.pubsub, {fill:"#171a21", stroke:"#25d366"}));
+  svg.appendChild(box(POS.gw3, {fill:"#171a21", stroke:"#34b7f1", opacity: opts.bobOffline ? 0.35 : 1}));
+  if(opts.bobOffline){
+    svg.appendChild(box(POS.bobOffline, {fill:"#1d212b", opacity:0.4}));
+  } else {
+    svg.appendChild(box(POS.bob, {fill:"#1d212b"}));
+  }
+}
+
+function center(p){ return {x: p.x + p.w/2, y: p.y + p.h/2}; }
+function edge(p, side){
+  const c = center(p);
+  if(side==="right") return {x:p.x+p.w, y:c.y};
+  if(side==="left") return {x:p.x, y:c.y};
+  if(side==="top") return {x:c.x, y:p.y};
+  if(side==="bottom") return {x:c.x, y:p.y+p.h};
+  return c;
+}
+
+function fadeIn(el, delay=0){
+  el.style.transition = "opacity .35s ease";
+  setTimeout(()=>{ el.style.opacity = 1; }, delay);
+}
+
+const SCENARIOS = {
+  online: {
+    name: "1 — Online delivery",
+    steps: [
+      {
+        tag: "1/8 · Send",
+        narrate: "Alice sends a message to Bob over her already-open WebSocket to <b>gateway-7</b>. Payload includes a client-generated UUID for dedup.",
+        draw(svg){
+          drawBaseActors(svg);
+          const a = edge(POS.alice,"right"), b = edge(POS.gw7,"left");
+          const ln = arrow(svg, a.x,a.y,b.x,b.y, "#34b7f1", "l1");
+          const lb = label(svg, (a.x+b.x)/2, a.y-14, "send(msg, client_id=a1f9)", "#34b7f1", "lb1");
+          fadeIn(ln); fadeIn(lb);
+        }
+      },
+      {
+        tag: "2/8 · Persist",
+        narrate: "<b>gateway-7 persists first, unconditionally</b> — before checking anything about Bob. This is the write that makes the message undeliverable-but-never-lost.",
+        draw(svg){
+          const a = edge(POS.gw7,"bottom"), b = edge(POS.store,"left");
+          const ln = arrow(svg, a.x, a.y, POS.store.x+20, POS.store.y, "#25d366", "l2");
+          const lb = label(svg, 350, 240, "PERSIST", "#25d366", "lb2");
+          fadeIn(ln); fadeIn(lb);
+        },
+        sideEffects(ctx){
+          seqCounter++;
+          const entry = {seq: seqCounter, conv:"alice-bob", sender:"alice", body:"<ciphertext>"};
+          messageStore.push(entry);
+          pubsubLog.push({type:"persist", text:`STORE.append({seq:${entry.seq}, conv:"alice-bob", sender:"alice"})`});
+        }
+      },
+      {
+        tag: "3/8 · Ack",
+        narrate: "Server acks Alice: <b>sent ✓</b>. She does not wait for Bob's delivery — the ack fires the instant persistence succeeds.",
+        draw(svg){
+          const a = edge(POS.gw7,"top"), b = edge(POS.alice,"top");
+          const ln = arrow(svg, POS.gw7.x+30, POS.gw7.y, POS.alice.x+70, POS.alice.y-10, "#25d366", "l3", true);
+          const lb = label(svg, 160, 130, "ack: sent ✓", "#25d366", "lb3");
+          fadeIn(ln); fadeIn(lb);
+        }
+      },
+      {
+        tag: "4/8 · Registry lookup",
+        narrate: "gateway-7 reads the <b>Connection Registry</b>: <code>presence:bob</code> → found, currently on <b>gateway-3</b>.",
+        draw(svg){
+          const a = edge(POS.gw7,"top"), b = edge(POS.registry,"left");
+          const ln = arrow(svg, POS.gw7.x+50, POS.gw7.y, POS.registry.x+10, POS.registry.y+60, "#d4a72c", "l4");
+          const lb = label(svg, 380, 100, "GET presence:bob", "#d4a72c", "lb4");
+          fadeIn(ln); fadeIn(lb);
+        },
+        sideEffects(){
+          pubsubLog.push({type:"publish", text:`GET presence:bob → {gateway:"gateway-3"}`});
+        }
+      },
+      {
+        tag: "5/8 · Compute partition",
+        narrate: "gateway-7 computes <code>partition = hash(\"gateway-3\") % 4096</code> — no lookup table needed, just a pure function of the gateway ID.",
+        draw(svg){
+          const lb = label(svg, POS.registry.x+85, POS.registry.y+90, "hash(\"gateway-3\") % 4096 = 771", "#d4a72c", "lb5");
+          fadeIn(lb);
+        }
+      },
+      {
+        tag: "6/8 · Publish",
+        narrate: "gateway-7 <b>publishes to partition 771</b> on the pub/sub bus — fire-and-forget, no waiting for an ack from any subscriber.",
+        draw(svg){
+          const a = edge(POS.gw7,"right"), b = edge(POS.pubsub,"left");
+          const ln = arrow(svg, a.x,a.y,b.x,b.y, "#25d366", "l6");
+          const lb = label(svg, (a.x+b.x)/2, a.y-14, "PUBLISH partition:771", "#25d366", "lb6");
+          fadeIn(ln); fadeIn(lb);
+        },
+        sideEffects(){
+          pubsubLog.push({type:"publish", text:`PUBLISH partition:771 {seq:${seqCounter}, to:"bob"}`});
+        }
+      },
+      {
+        tag: "7/8 · Subscriber receives",
+        narrate: "<b>gateway-3</b> is subscribed to partition 771 (it computed the same hash on startup) and receives the message.",
+        draw(svg){
+          const a = edge(POS.pubsub,"right"), b = edge(POS.gw3,"left");
+          const ln = arrow(svg, a.x,a.y,b.x,b.y, "#25d366", "l7");
+          const lb = label(svg, (a.x+b.x)/2, a.y-14, "deliver(partition:771)", "#25d366", "lb7");
+          fadeIn(ln); fadeIn(lb);
+        },
+        sideEffects(){
+          pubsubLog.push({type:"deliver", text:`gateway-3 subscriber callback fires, partition:771`});
+        }
+      },
+      {
+        tag: "8/8 · Local push",
+        narrate: "gateway-3 checks its <b>local socket table</b> for bob, finds his open WebSocket, and pushes the message down it. Bob sees it in real time.",
+        draw(svg){
+          const a = edge(POS.gw3,"top"), b = edge(POS.bob,"bottom");
+          const ln = arrow(svg, a.x,a.y,b.x,b.y, "#34b7f1", "l8");
+          const lb = label(svg, (a.x+b.x)/2, a.y-12, "WS push", "#34b7f1", "lb8");
+          fadeIn(ln); fadeIn(lb);
+        },
+        sideEffects(){
+          pubsubLog.push({type:"deliver", text:`WS.send(bob_socket, msg) — delivered in real time`});
+        }
+      }
+    ]
+  },
+
+  offline: {
+    name: "2 — Offline recipient",
+    steps: [
+      {
+        tag: "1/6 · Send",
+        narrate: "Alice sends a message to Bob, who has been offline for 6 hours (app killed, no active WebSocket anywhere).",
+        draw(svg){
+          drawBaseActors(svg, {bobOffline:true});
+          const a = edge(POS.alice,"right"), b = edge(POS.gw7,"left");
+          const ln = arrow(svg, a.x,a.y,b.x,b.y, "#34b7f1", "l1");
+          fadeIn(ln);
+        }
+      },
+      {
+        tag: "2/6 · Persist",
+        narrate: "gateway-7 persists — <b>exactly the same as the online case</b>. Persistence never depends on whether the recipient is reachable.",
+        draw(svg){
+          const a = edge(POS.gw7,"bottom");
+          const ln = arrow(svg, a.x, a.y, POS.store.x+20, POS.store.y, "#25d366", "l2");
+          const lb = label(svg, 350, 240, "PERSIST (unconditional)", "#25d366", "lb2");
+          fadeIn(ln); fadeIn(lb);
+        },
+        sideEffects(){
+          seqCounter++;
+          messageStore.push({seq:seqCounter, conv:"alice-bob", sender:"alice", body:"<ciphertext>"});
+          pubsubLog.push({type:"persist", text:`STORE.append({seq:${seqCounter}, conv:"alice-bob"})`});
+        }
+      },
+      {
+        tag: "3/6 · Ack",
+        narrate: "Alice still gets <b>sent ✓</b> immediately — from her perspective this looks identical to sending to an online user.",
+        draw(svg){
+          const ln = arrow(svg, POS.gw7.x+30, POS.gw7.y, POS.alice.x+70, POS.alice.y-10, "#25d366", "l3", true);
+          const lb = label(svg, 160, 130, "ack: sent ✓", "#25d366", "lb3");
+          fadeIn(ln); fadeIn(lb);
+        }
+      },
+      {
+        tag: "4/6 · Registry miss",
+        narrate: "gateway-7 checks <code>presence:bob</code> — <b>no entry</b> (TTL expired, no heartbeat in 60s+). Registry correctly reflects: Bob is not reachable.",
+        draw(svg){
+          const ln = arrow(svg, POS.gw7.x+50, POS.gw7.y, POS.registry.x+10, POS.registry.y+60, "#e5534b", "l4");
+          const lb = label(svg, 380, 100, "GET presence:bob → (nil)", "#e5534b", "lb4");
+          fadeIn(ln); fadeIn(lb);
+        },
+        sideEffects(){
+          pubsubLog.push({type:"drop", text:`GET presence:bob → nil (no active connection)`});
+        }
+      },
+      {
+        tag: "5/6 · No publish attempted",
+        narrate: "<b>Nothing else happens.</b> No publish, no retry queue, no background job. This is the entire offline-handling mechanism — it's just the absence of a lookup hit.",
+        draw(svg){
+          const lb = label(svg, POS.pubsub.x+85, POS.pubsub.y+45, "(no publish issued)", "#6b7280", "lb5");
+          lb.setAttribute("font-style","italic");
+          fadeIn(lb);
+        }
+      },
+      {
+        tag: "6/6 · Later: reconnect + sync",
+        narrate: "6 hours later, Bob opens the app. His client sends <code>last_seen_seq: 4820</code>. Server returns everything after — <b>this one message included</b> — in a single sync response.",
+        draw(svg){
+          const a = edge(POS.bobOffline,"left"), b = edge(POS.store,"right");
+          const ln = arrow(svg, b.x, b.y+10, a.x, a.y, "#34b7f1", "l6");
+          const lb = label(svg, 780, 320, "sync: seq > 4820 → [this msg]", "#34b7f1", "lb6");
+          fadeIn(ln); fadeIn(lb);
+        },
+        sideEffects(){
+          pubsubLog.push({type:"deliver", text:`SYNC bob: seq>4820 → returns 1 message from durable store`});
+        }
+      }
+    ]
+  },
+
+  group: {
+    name: "3 — Group fan-out (6 members)",
+    steps: [
+      {
+        tag: "1/5 · Send to group",
+        narrate: "Alice sends into group G99 (6 members: alice, bob, carol, dave, erin, frank). gateway-7 persists <b>one</b> canonical copy.",
+        draw(svg){
+          drawBaseActors(svg);
+          document.querySelector('#mainSvg text[id="lb-title"]');
+          const a = edge(POS.alice,"right"), b = edge(POS.gw7,"left");
+          const ln = arrow(svg, a.x,a.y,b.x,b.y, "#34b7f1", "l1");
+          fadeIn(ln);
+        },
+        sideEffects(){
+          seqCounter++;
+          messageStore.push({seq:seqCounter, conv:"G99", sender:"alice", body:"<ciphertext>"});
+          pubsubLog.push({type:"persist", text:`STORE.append({seq:${seqCounter}, group:"G99"}) — ONE row`});
+        }
+      },
+      {
+        tag: "2/5 · Registry resolves 4 online members",
+        narrate: "Fan-out worker resolves each member: bob→gw-3, carol→gw-7, dave→gw-7, erin→gw-11. <b>frank has no entry (offline)</b>.",
+        draw(svg){
+          const lb = label(svg, POS.registry.x+85, POS.registry.y+90,
+            "bob→gw3 carol→gw7 dave→gw7 erin→gw11 frank→∅", "#d4a72c", "lb2");
+          lb.setAttribute("font-size","9.5");
+          fadeIn(lb);
+        },
+        sideEffects(){
+          pubsubLog.push({type:"publish", text:`resolve(G99 members) → 3 distinct gateways + 1 offline`});
+        }
+      },
+      {
+        tag: "3/5 · Publish once per distinct gateway",
+        narrate: "<b>3 publishes cover 4 online recipients</b> — carol and dave share gateway-7, so one publish to that partition covers both.",
+        draw(svg){
+          const a = edge(POS.gw7,"right"), b = edge(POS.pubsub,"left");
+          const ln1 = arrow(svg, a.x,a.y-15,b.x,b.y-15, "#25d366", "l3a");
+          const ln2 = arrow(svg, a.x,a.y,b.x,b.y, "#25d366", "l3b");
+          const ln3 = arrow(svg, a.x,a.y+15,b.x,b.y+15, "#25d366", "l3c");
+          const lb = label(svg, (a.x+b.x)/2, a.y-32, "3 publishes: gw3, gw7(×carol+dave), gw11", "#25d366", "lb3");
+          fadeIn(ln1); fadeIn(ln2,80); fadeIn(ln3,160); fadeIn(lb);
+        },
+        sideEffects(){
+          pubsubLog.push({type:"publish", text:`PUBLISH partition(gw-3)  → covers bob`});
+          pubsubLog.push({type:"publish", text:`PUBLISH partition(gw-7)  → covers carol AND dave`});
+          pubsubLog.push({type:"publish", text:`PUBLISH partition(gw-11) → covers erin`});
+        }
+      },
+      {
+        tag: "4/5 · gateway-7 delivers to 2 local sockets",
+        narrate: "gateway-7 receives its own publish (it's subscribed too), checks local socket table, finds <b>both</b> carol and dave connected — pushes to both from one event.",
+        draw(svg){
+          const lb = label(svg, POS.pubsub.x+85, 60, "gw-7 local table: {carol, dave} ∈ G99 → push both", "#e6c25c", "lb4");
+          lb.setAttribute("font-size","9.5");
+          fadeIn(lb);
+        },
+        sideEffects(){
+          pubsubLog.push({type:"deliver", text:`gateway-7 local push → carol AND dave (1 event, 2 sockets)`});
+        }
+      },
+      {
+        tag: "5/5 · frank picks it up later",
+        narrate: "frank (offline) attempted zero publishes. He'll receive this — along with anything else he missed — on his next sync, no special handling required.",
+        draw(svg){
+          const lb = label(svg, POS.bobOffline.x+50, POS.bobOffline.y+90, "frank: picked up on next sync", "#6b7280", "lb5");
+          lb.setAttribute("font-style","italic");
+          fadeIn(lb);
+        }
+      }
+    ]
+  }
+};
+
+/* ============================================================
+   PLAYBACK CONTROLLER
+   ============================================================ */
+let currentScenario = "online";
+let currentStep = -1;
+let isPlaying = false;
+let playTimer = null;
+
+const svgEl = document.getElementById("mainSvg");
+const narrationEl = document.getElementById("narration");
+const stepIndicatorEl = document.getElementById("stepIndicator");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
+const playBtn = document.getElementById("playBtn");
+const resetBtn = document.getElementById("resetBtn");
+const scenarioSelectEl = document.getElementById("scenarioSelect");
+
+function renderScenarioButtons(){
+  scenarioSelectEl.innerHTML = "";
+  Object.keys(SCENARIOS).forEach(key=>{
+    const btn = document.createElement("button");
+    btn.className = "scenario-btn" + (key===currentScenario ? " active" : "");
+    btn.textContent = SCENARIOS[key].name;
+    btn.onclick = ()=>{ switchScenario(key); };
+    scenarioSelectEl.appendChild(btn);
+  });
+}
+
+function switchScenario(key){
+  currentScenario = key;
+  currentStep = -1;
+  isPlaying = false;
+  clearTimeout(playTimer);
+  playBtn.textContent = "▶ Play";
+  resetState();
+  renderScenarioButtons();
+  renderPanels();
+  drawBaseActors(svgEl, {bobOffline: key==="offline"});
+  narrationEl.innerHTML = `<span class="tag">Ready</span>Scenario loaded: <b>${SCENARIOS[key].name}</b>. Press Play or step through.`;
+  updateStepIndicator();
+  updateButtons();
+}
+
+function updateStepIndicator(){
+  const total = SCENARIOS[currentScenario].steps.length;
+  stepIndicatorEl.textContent = `Step ${Math.max(currentStep+1,0)} / ${total}`;
+}
+
+function updateButtons(){
+  const total = SCENARIOS[currentScenario].steps.length;
+  prevBtn.disabled = currentStep <= -1;
+  nextBtn.disabled = currentStep >= total - 1;
+}
+
+function goToStep(idx){
+  const steps = SCENARIOS[currentScenario].steps;
+  if(idx < 0){
+    currentStep = -1;
+    resetState();
+    renderPanels();
+    drawBaseActors(svgEl, {bobOffline: currentScenario==="offline"});
+    narrationEl.innerHTML = `<span class="tag">Ready</span>Scenario loaded: <b>${SCENARIOS[currentScenario].name}</b>. Press Play or step through.`;
+    updateStepIndicator();
+    updateButtons();
+    return;
+  }
+  if(idx >= steps.length) return;
+
+  // Replay from scratch up to idx to keep panel state consistent
+  resetState();
+  drawBaseActors(svgEl, {bobOffline: currentScenario==="offline"});
+  for(let i=0; i<=idx; i++){
+    const step = steps[i];
+    step.draw(svgEl, {});
+    if(step.sideEffects) step.sideEffects({});
+  }
+  currentStep = idx;
+  const step = steps[idx];
+  narrationEl.innerHTML = `<span class="tag">${step.tag}</span>${step.narrate}`;
+  renderPanels();
+  updateStepIndicator();
+  updateButtons();
+}
+
+function nextStep(){
+  const steps = SCENARIOS[currentScenario].steps;
+  if(currentStep < steps.length - 1){
+    goToStep(currentStep + 1);
+  } else {
+    isPlaying = false;
+    clearTimeout(playTimer);
+    playBtn.textContent = "▶ Play";
+  }
+}
+
+function prevStep(){
+  if(currentStep > -1){
+    goToStep(currentStep - 1);
+  }
+}
+
+function togglePlay(){
+  isPlaying = !isPlaying;
+  playBtn.textContent = isPlaying ? "⏸ Pause" : "▶ Play";
+  if(isPlaying){
+    playLoop();
+  } else {
+    clearTimeout(playTimer);
+  }
+}
+
+function playLoop(){
+  if(!isPlaying) return;
+  const steps = SCENARIOS[currentScenario].steps;
+  if(currentStep >= steps.length - 1){
+    isPlaying = false;
+    playBtn.textContent = "▶ Play";
+    return;
+  }
+  nextStep();
+  playTimer = setTimeout(playLoop, 2200);
+}
+
+/* ============================================================
+   PANEL RENDERING — Registry table, pubsub log, message store
+   ============================================================ */
+function renderPanels(){
+  // Registry
+  const tbody = document.querySelector("#registryTable tbody");
+  const regEmpty = document.getElementById("registryEmpty");
+  tbody.innerHTML = "";
+  const keys = Object.keys(registryState);
+  if(keys.length === 0){
+    regEmpty.style.display = "block";
+  } else {
+    regEmpty.style.display = "none";
+    keys.forEach(k=>{
+      const v = registryState[k];
+      const tr = document.createElement("tr");
+      tr.className = "fresh";
+      tr.innerHTML = `<td class="k">presence:${k}</td><td class="v">{gw:"${v.gateway}", conn:"${v.conn}"}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Pub/sub log
+  const logList = document.getElementById("pubsubLog");
+  const logEmpty = document.getElementById("pubsubEmpty");
+  logList.innerHTML = "";
+  if(pubsubLog.length === 0){
+    logEmpty.style.display = "block";
+  } else {
+    logEmpty.style.display = "none";
+    pubsubLog.slice().reverse().forEach(entry=>{
+      const div = document.createElement("div");
+      div.className = "log-entry " + entry.type;
+      div.textContent = entry.text;
+      logList.appendChild(div);
+    });
+  }
+
+  // Message store
+  const storeDiv = document.getElementById("messageStore");
+  const storeEmpty = document.getElementById("storeEmpty");
+  storeDiv.innerHTML = "";
+  if(messageStore.length === 0){
+    storeEmpty.style.display = "block";
+  } else {
+    storeEmpty.style.display = "none";
+    messageStore.forEach(m=>{
+      const div = document.createElement("div");
+      div.className = "msg-store-row";
+      div.textContent = `seq:${m.seq}  ${m.conv ? 'conv:"'+m.conv+'"' : 'group:"'+m.group+'"'}  sender:"${m.sender}"`;
+      storeDiv.appendChild(div);
+    });
+  }
+}
+
+/* ============================================================
+   WIRE UP CONTROLS
+   ============================================================ */
+prevBtn.addEventListener("click", ()=>{ isPlaying=false; clearTimeout(playTimer); playBtn.textContent="▶ Play"; prevStep(); });
+nextBtn.addEventListener("click", ()=>{ isPlaying=false; clearTimeout(playTimer); playBtn.textContent="▶ Play"; nextStep(); });
+playBtn.addEventListener("click", togglePlay);
+resetBtn.addEventListener("click", ()=>{ isPlaying=false; clearTimeout(playTimer); playBtn.textContent="▶ Play"; goToStep(-1); });
+
+/* ============================================================
+   INIT
+   ============================================================ */
+resetState();
+renderScenarioButtons();
+drawBaseActors(svgEl, {bobOffline:false});
+renderPanels();
+updateStepIndicator();
+updateButtons();
+</script>
+</body>
+</html>
