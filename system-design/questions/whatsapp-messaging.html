@@ -129,6 +129,7 @@
     <li><a href="#v2">What happens when the receiver is offline?</a></li>
     <li><a href="#v3">How do we scale past one WebSocket server?</a></li>
     <li><a href="#v4">How do we handle group chats without O(N) writes on the sender?</a></li>
+    <li><a href="#architecture">The final architecture — every component on one diagram</a></li>
     <li><a href="#decisions">Key decisions, narrated</a></li>
     <li><a href="#deepdives">Deep dives</a></li>
     <li><a href="#edgecases">Edge cases</a></li>
@@ -393,6 +394,175 @@
 
 <h3>Large groups: push vs pull hybrid</h3>
 <p>For very large or very "hot" groups (announcement channels, broadcast lists), pure push-fan-out to potentially-offline members wastes work. The same hybrid approach from celebrity fan-out in feed systems applies: for groups above a size threshold, skip proactive per-member pub/sub publishing for <em>offline</em> members entirely (they'll pull on sync anyway) and only push to members who are <em>currently connected</em>. This turns "fan out to 1024" into "fan out to however many are actually online right now," which for most groups at any given moment is a small fraction.</p>
+
+<h2 id="architecture"><span class="qmark">Q:</span> Put it all together — what does the final architecture look like with every component?</h2>
+<p class="lead">v1–v4 each added one idea. Here is the whole system on one diagram: the real-time data plane (persistent WebSockets), the routing layer (connection registry + partitioned pub/sub bus), the durable stores, the async group fan-out, presence, and the entirely separate HTTPS media/blob path. The numbered arrows trace a single 1:1 message; the rest are the supporting paths.</p>
+
+<div class="diagram-wrap">
+<svg viewBox="0 0 990 600" xmlns="http://www.w3.org/2000/svg" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif">
+  <defs>
+    <marker id="fab" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#34b7f1"/></marker>
+    <marker id="fag" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#25d366"/></marker>
+    <marker id="faa" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#d4a72c"/></marker>
+    <marker id="fam" markerWidth="9" markerHeight="9" refX="7.5" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6 Z" fill="#6b7280"/></marker>
+  </defs>
+
+  <!-- ===== boxes ===== -->
+  <rect x="200" y="14" width="340" height="52" rx="10" fill="#1d212b" stroke="#2a2f3a"/>
+  <text x="370" y="35" text-anchor="middle" fill="#fff" font-size="12.5" font-weight="bold">Clients — phone · web · desktop</text>
+  <text x="370" y="52" text-anchor="middle" fill="#9aa4b2" font-size="9">multi-device: one account, many live sockets · client-side E2E crypto + dedup cache</text>
+
+  <rect x="30" y="100" width="430" height="78" rx="10" fill="#171a21" stroke="#34b7f1" stroke-width="1.4"/>
+  <text x="245" y="125" text-anchor="middle" fill="#fff" font-size="12.5" font-weight="bold">Connection Servers  (gateway / edge fleet)</text>
+  <text x="245" y="144" text-anchor="middle" fill="#9aa4b2" font-size="9">WebSocket termination · ~0.5–1M conns per node · in-memory socket table</text>
+  <text x="245" y="160" text-anchor="middle" fill="#9aa4b2" font-size="9">multiplexed frames: message · iq · notification · presence · receipt · ack</text>
+
+  <rect x="490" y="100" width="230" height="78" rx="10" fill="#171a21" stroke="#2a2f3a"/>
+  <text x="605" y="125" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">HTTPS REST — stateless</text>
+  <text x="605" y="145" text-anchor="middle" fill="#9aa4b2" font-size="9">registration · SMS-OTP</text>
+  <text x="605" y="160" text-anchor="middle" fill="#9aa4b2" font-size="9">push-token upload</text>
+
+  <rect x="770" y="100" width="190" height="78" rx="10" fill="#171a21" stroke="#25d366" stroke-width="1.4"/>
+  <text x="865" y="124" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">Media / Blob Service</text>
+  <text x="865" y="143" text-anchor="middle" fill="#9aa4b2" font-size="8.5">HTTPS · client-encrypted</text>
+  <text x="865" y="157" text-anchor="middle" fill="#9aa4b2" font-size="8.5">big bytes never hit the socket</text>
+
+  <rect x="30" y="210" width="170" height="82" rx="10" fill="#171a21" stroke="#34b7f1" stroke-width="1.4"/>
+  <text x="115" y="233" text-anchor="middle" fill="#fff" font-size="11.5" font-weight="bold">Sequencer /</text>
+  <text x="115" y="248" text-anchor="middle" fill="#fff" font-size="11.5" font-weight="bold">conversation owner</text>
+  <text x="115" y="266" text-anchor="middle" fill="#9aa4b2" font-size="8.5">per-conv seq · hash(conv_id)</text>
+  <text x="115" y="279" text-anchor="middle" fill="#9aa4b2" font-size="8.5">single-writer · lease + fence</text>
+
+  <rect x="220" y="210" width="180" height="82" rx="10" fill="#171a21" stroke="#d4a72c" stroke-width="1.4"/>
+  <text x="310" y="231" text-anchor="middle" fill="#fff" font-size="11.5" font-weight="bold">Connection Registry</text>
+  <text x="310" y="249" text-anchor="middle" fill="#9aa4b2" font-size="8.5">Redis · user → set of</text>
+  <text x="310" y="262" text-anchor="middle" fill="#9aa4b2" font-size="8.5">{gateway, device, conn_id}</text>
+  <text x="310" y="279" text-anchor="middle" fill="#9aa4b2" font-size="8.5">TTL 60s, heartbeat-refreshed</text>
+
+  <rect x="420" y="210" width="190" height="82" rx="10" fill="#171a21" stroke="#25d366" stroke-width="1.4"/>
+  <text x="515" y="231" text-anchor="middle" fill="#fff" font-size="11.5" font-weight="bold">Pub/Sub Message Bus</text>
+  <text x="515" y="249" text-anchor="middle" fill="#9aa4b2" font-size="8.5">hash-partitioned (~4096)</text>
+  <text x="515" y="262" text-anchor="middle" fill="#9aa4b2" font-size="8.5">Redis Pub/Sub — real-time nudge</text>
+  <text x="515" y="279" text-anchor="middle" fill="#9aa4b2" font-size="8.5">(Kafka where a replayable log helps)</text>
+
+  <rect x="630" y="210" width="140" height="82" rx="10" fill="#171a21" stroke="#2a2f3a"/>
+  <text x="700" y="236" text-anchor="middle" fill="#fff" font-size="11.5" font-weight="bold">Push Notification</text>
+  <text x="700" y="251" text-anchor="middle" fill="#fff" font-size="11.5" font-weight="bold">Service</text>
+  <text x="700" y="272" text-anchor="middle" fill="#9aa4b2" font-size="8.5">&#8594; APNs · FCM</text>
+
+  <rect x="770" y="280" width="190" height="76" rx="10" fill="#171a21" stroke="#2a2f3a"/>
+  <text x="865" y="304" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">Blob Storage</text>
+  <text x="865" y="322" text-anchor="middle" fill="#9aa4b2" font-size="8.5">object store (S3-like)</text>
+  <text x="865" y="336" text-anchor="middle" fill="#9aa4b2" font-size="8.5">encrypted, immutable objects</text>
+
+  <rect x="30" y="360" width="210" height="80" rx="10" fill="#171a21" stroke="#d4a72c" stroke-width="1.4"/>
+  <text x="135" y="383" text-anchor="middle" fill="#fff" font-size="11.5" font-weight="bold">Fan-out Workers  (async)</text>
+  <text x="135" y="401" text-anchor="middle" fill="#9aa4b2" font-size="8.5">expand group membership</text>
+  <text x="135" y="414" text-anchor="middle" fill="#9aa4b2" font-size="8.5">publish once per online member;</text>
+  <text x="135" y="427" text-anchor="middle" fill="#9aa4b2" font-size="8.5">offline members pull on sync</text>
+
+  <rect x="260" y="360" width="250" height="80" rx="10" fill="#171a21" stroke="#2a2f3a"/>
+  <text x="385" y="383" text-anchor="middle" fill="#fff" font-size="11.5" font-weight="bold">Group · Profile · Contacts Service</text>
+  <text x="385" y="401" text-anchor="middle" fill="#9aa4b2" font-size="8.5">iq RPCs: create group, membership,</text>
+  <text x="385" y="414" text-anchor="middle" fill="#9aa4b2" font-size="8.5">subject / icon, profile name / about</text>
+  <text x="385" y="427" text-anchor="middle" fill="#9aa4b2" font-size="8.5">emits notification &#8594; v4 fan-out</text>
+
+  <rect x="530" y="360" width="240" height="80" rx="10" fill="#171a21" stroke="#34b7f1" stroke-width="1.4"/>
+  <text x="650" y="386" text-anchor="middle" fill="#fff" font-size="11.5" font-weight="bold">Presence / Typing Service</text>
+  <text x="650" y="405" text-anchor="middle" fill="#9aa4b2" font-size="8.5">online · last-seen · typing</text>
+  <text x="650" y="419" text-anchor="middle" fill="#9aa4b2" font-size="8.5">ephemeral — Redis, never persisted</text>
+
+  <rect x="770" y="440" width="190" height="76" rx="10" fill="#171a21" stroke="#25d366" stroke-width="1.4"/>
+  <text x="865" y="464" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">Media CDN</text>
+  <text x="865" y="482" text-anchor="middle" fill="#9aa4b2" font-size="8.5">HTTPS GET · edge-cached</text>
+  <text x="865" y="496" text-anchor="middle" fill="#9aa4b2" font-size="8.5">decrypt client-side w/ media key</text>
+
+  <rect x="30" y="460" width="340" height="80" rx="10" fill="#171a21" stroke="#2a2f3a"/>
+  <text x="200" y="484" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">Message Store  (durable — source of truth)</text>
+  <text x="200" y="503" text-anchor="middle" fill="#9aa4b2" font-size="8.5">wide-column (Cassandra-style) · partition = conv_id</text>
+  <text x="200" y="517" text-anchor="middle" fill="#9aa4b2" font-size="8.5">clustering key = per-conversation seq · append-optimized</text>
+
+  <rect x="390" y="460" width="330" height="80" rx="10" fill="#171a21" stroke="#2a2f3a"/>
+  <text x="555" y="484" text-anchor="middle" fill="#fff" font-size="12" font-weight="bold">Metadata Store</text>
+  <text x="555" y="503" text-anchor="middle" fill="#9aa4b2" font-size="8.5">groups (members, roles, settings),</text>
+  <text x="555" y="517" text-anchor="middle" fill="#9aa4b2" font-size="8.5">user profiles, contacts, blocked lists</text>
+
+  <!-- ===== arrows: numbered 1:1 message path ===== -->
+  <line x1="358" y1="66" x2="302" y2="98" stroke="#34b7f1" stroke-width="1.8" marker-end="url(#fab)"/>
+  <text x="300" y="82" text-anchor="middle" fill="#7cc7f5" font-size="9" font-weight="bold">1 send</text>
+  <line x1="420" y1="98" x2="472" y2="66" stroke="#34b7f1" stroke-width="1.8" marker-end="url(#fab)"/>
+  <text x="458" y="82" text-anchor="middle" fill="#7cc7f5" font-size="9" font-weight="bold">7 push</text>
+  <line x1="512" y1="66" x2="580" y2="98" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#fam)"/>
+  <text x="560" y="82" text-anchor="middle" fill="#9aa4b2" font-size="8.5">signup / OTP</text>
+
+  <line x1="150" y1="178" x2="120" y2="208" stroke="#34b7f1" stroke-width="1.8" marker-end="url(#fab)"/>
+  <text x="112" y="197" text-anchor="middle" fill="#7cc7f5" font-size="9" font-weight="bold">2 seq</text>
+  <line x1="270" y1="178" x2="300" y2="208" stroke="#d4a72c" stroke-width="1.8" marker-end="url(#faa)"/>
+  <text x="304" y="197" text-anchor="middle" fill="#e6c25c" font-size="9" font-weight="bold">4 find</text>
+  <line x1="360" y1="178" x2="475" y2="208" stroke="#25d366" stroke-width="1.8" marker-end="url(#fag)"/>
+  <text x="430" y="192" text-anchor="middle" fill="#5fe08a" font-size="9" font-weight="bold">5 publish &#8594; partition(recipient)</text>
+  <path d="M470,210 Q474,190 432,180" fill="none" stroke="#25d366" stroke-width="1.8" marker-end="url(#fag)"/>
+  <text x="545" y="203" text-anchor="middle" fill="#5fe08a" font-size="8.5">6 recipient's gateway consumes &#8594; pushes (7)</text>
+  <line x1="415" y1="178" x2="655" y2="212" stroke="#d4a72c" stroke-width="1.6" stroke-dasharray="4,3" marker-end="url(#faa)"/>
+  <text x="545" y="171" text-anchor="middle" fill="#e6c25c" font-size="8.5">8 if offline: wake the killed app</text>
+
+  <!-- persist (critical path) down the left gutter -->
+  <polyline points="60,292 20,320 20,450 54,460" fill="none" stroke="#6b7280" stroke-width="1.7" marker-end="url(#fam)"/>
+  <text x="13" y="380" text-anchor="middle" fill="#9aa4b2" font-size="8.5" transform="rotate(-90 13 380)">3 persist — synchronous, on the critical path</text>
+
+  <!-- reconnect sync down the right gutter -->
+  <polyline points="452,178 744,178 744,556 200,556 200,542" fill="none" stroke="#6b7280" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#fam)"/>
+  <text x="752" y="368" text-anchor="middle" fill="#9aa4b2" font-size="8.5" transform="rotate(-90 752 368)">reconnect sync: fetch seq &gt; client cursor</text>
+
+  <!-- media plane -->
+  <line x1="540" y1="40" x2="766" y2="104" stroke="#25d366" stroke-width="1.6" stroke-dasharray="4,3" marker-end="url(#fag)"/>
+  <text x="648" y="58" text-anchor="middle" fill="#5fe08a" font-size="8.5">encrypted upload</text>
+  <line x1="865" y1="178" x2="865" y2="278" stroke="#6b7280" stroke-width="1.6" marker-end="url(#fam)"/>
+  <text x="874" y="232" fill="#9aa4b2" font-size="8.5">store</text>
+  <line x1="865" y1="356" x2="865" y2="438" stroke="#6b7280" stroke-width="1.6" marker-end="url(#fam)"/>
+  <text x="874" y="400" fill="#9aa4b2" font-size="8.5">origin</text>
+  <polyline points="960,460 980,460 980,24 542,24" fill="none" stroke="#25d366" stroke-width="1.6" stroke-dasharray="4,3" marker-end="url(#fag)"/>
+  <text x="973" y="250" text-anchor="middle" fill="#5fe08a" font-size="8.5" transform="rotate(-90 973 250)">media GET &#8594; client-side decrypt</text>
+
+  <!-- async / control / presence -->
+  <line x1="205" y1="360" x2="470" y2="293" stroke="#25d366" stroke-width="1.6" marker-end="url(#fag)"/>
+  <text x="330" y="316" text-anchor="middle" fill="#5fe08a" font-size="8.5">group: publish per online member</text>
+  <line x1="150" y1="440" x2="330" y2="460" stroke="#6b7280" stroke-width="1.5" marker-end="url(#fam)"/>
+  <text x="230" y="456" text-anchor="middle" fill="#9aa4b2" font-size="8.5">read member list</text>
+  <line x1="420" y1="440" x2="470" y2="460" stroke="#6b7280" stroke-width="1.5" marker-end="url(#fam)"/>
+  <line x1="470" y1="360" x2="500" y2="293" stroke="#d4a72c" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#faa)"/>
+  <text x="512" y="330" text-anchor="middle" fill="#e6c25c" font-size="8.5">notification</text>
+  <line x1="600" y1="360" x2="558" y2="293" stroke="#34b7f1" stroke-width="1.4" marker-end="url(#fab)"/>
+  <text x="596" y="330" text-anchor="middle" fill="#7cc7f5" font-size="8.5">ephemeral</text>
+
+  <!-- ===== legend ===== -->
+  <line x1="30" y1="576" x2="54" y2="576" stroke="#34b7f1" stroke-width="2"/>
+  <text x="60" y="579" fill="#9aa4b2" font-size="9">real-time data plane (WebSocket / push)</text>
+  <line x1="300" y1="576" x2="324" y2="576" stroke="#25d366" stroke-width="2"/>
+  <text x="330" y="579" fill="#9aa4b2" font-size="9">pub/sub routing &amp; media</text>
+  <line x1="490" y1="576" x2="514" y2="576" stroke="#d4a72c" stroke-width="2"/>
+  <text x="520" y="579" fill="#9aa4b2" font-size="9">async / control / wake</text>
+  <line x1="680" y1="576" x2="704" y2="576" stroke="#6b7280" stroke-width="2"/>
+  <text x="710" y="579" fill="#9aa4b2" font-size="9">durable write &amp; read paths</text>
+</svg>
+</div>
+<div class="diagram-caption">The full architecture. Numbered arrows 1–8 trace one 1:1 message; step 3 (persist) is the only synchronous dependency of the sender's <code>sent ✓</code>. Everything else — real-time push, registry lookup, pub/sub routing, group fan-out, presence — is best-effort on top of the durable Message Store. Media is a wholly separate HTTPS path: the socket only ever carries a URL + key.</div>
+
+<table>
+  <tr><th>Component</th><th>Responsibility</th><th>Store / tech</th></tr>
+  <tr><td>Connection Servers (gateways)</td><td>Terminate the persistent WebSocket, hold the in-memory <code>user → socket</code> table, multiplex message/iq/notification/presence/receipt frames, run the persist → lookup → publish send path</td><td>stateless fleet, ~1M conns/node</td></tr>
+  <tr><td>Sequencer / conversation owner</td><td>Assign the authoritative per-conversation sequence number; single-writer per conversation via consistent-hash + lease/fencing token</td><td>partitioned service</td></tr>
+  <tr><td>Connection Registry</td><td>"Who is connected where, right now" — a <em>hint</em>, verified on use; self-heals via TTL + heartbeat</td><td>Redis, <code>user → set{gateway,device,conn}</code>, TTL 60s</td></tr>
+  <tr><td>Pub/Sub Message Bus</td><td>Route a message from the sender's gateway to the recipient's gateway with no gateway-to-gateway coupling; absorbs brief consumer slowness</td><td>Redis Pub/Sub for the nudge; ~4096 hash partitions; Kafka where replay matters</td></tr>
+  <tr><td>Message Store</td><td>Durable source of truth for every message; the reconnect <code>sync?seq&gt;cursor</code> read path</td><td>wide-column (Cassandra-style), partition = <code>conv_id</code>, clustering key = <code>seq</code></td></tr>
+  <tr><td>Fan-out Workers</td><td>Async group delivery — expand membership, publish once per online member, let offline members pull on sync</td><td>queue-driven workers</td></tr>
+  <tr><td>Group · Profile · Contacts Service</td><td>Control-plane <code>iq</code> RPCs (create/rename group, membership, profile); emits <code>notification</code> that reuses the v4 fan-out</td><td>backed by Metadata Store</td></tr>
+  <tr><td>Metadata Store</td><td>Group membership/roles/settings, user profiles, contacts, blocked lists</td><td>relational or wide-column</td></tr>
+  <tr><td>Presence / Typing Service</td><td>Online / last-seen / typing — ephemeral, published over the same bus, deliberately never persisted</td><td>Redis (TTL keys)</td></tr>
+  <tr><td>Push Notification Service</td><td>Wake a killed app so it reconnects and syncs sooner; fire-and-forget</td><td>APNs (iOS) / FCM (Android)</td></tr>
+  <tr><td>Media / Blob Service + Blob Storage + CDN</td><td>Client-encrypted upload of any photo/video/audio/document and profile/group images; the socket carries only <code>{url, media_key, sha256}</code>; downloads served + cached at the edge</td><td>HTTPS service &#8594; object store (S3-like) &#8594; Media CDN</td></tr>
+  <tr><td>HTTPS REST</td><td>Bootstrap only — registration and SMS-OTP, before any session or socket exists</td><td>stateless</td></tr>
+</table>
 
 <h2 id="decisions"><span class="qmark">Q:</span> What are the 2–3 decisions that actually separate a good answer from a great one here?</h2>
 
