@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Database Sharding — Hands-on Practice Lab</title>
+<style>
+:root{
+  --bg:#0d1117; --panel:#161b22; --panel2:#1c2330; --border:#2b3442;
+  --text:#c9d1d9; --muted:#8b949e; --accent:#58a6ff; --accent2:#a371f7;
+  --green:#3fb950; --yellow:#d29922; --red:#f85149; --code-bg:#0b0f16;
+  --radius:10px; --maxw:900px;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.65;font-size:16px}
+a{color:var(--accent);text-decoration:none}
+a:hover{text-decoration:underline}
+.layout{display:flex;max-width:1240px;margin:0 auto}
+.sidebar{width:250px;flex:0 0 250px;position:sticky;top:0;height:100vh;overflow-y:auto;padding:22px 14px 60px;border-right:1px solid var(--border);background:var(--panel)}
+.content{flex:1;min-width:0;padding:34px 40px 120px;max-width:var(--maxw);margin:0 auto}
+@media(max-width:900px){.sidebar{display:none}.content{padding:22px 16px 90px}}
+.brand{font-weight:800;font-size:1.02rem;color:#fff;margin-bottom:4px}
+.brand small{display:block;font-weight:500;color:var(--muted);font-size:.72rem;margin-top:4px}
+.nav a{display:block;color:var(--muted);padding:5px 10px;border-radius:6px;font-size:.85rem;border-left:2px solid transparent}
+.nav a:hover{color:var(--text);background:var(--panel2);text-decoration:none}
+.nav .grp{font-size:.66rem;text-transform:uppercase;letter-spacing:1px;color:#586069;margin:16px 0 6px 10px;font-weight:700}
+.hero{background:linear-gradient(135deg,#161b22,#1b2740);border:1px solid var(--border);border-radius:var(--radius);padding:24px 26px;margin-bottom:18px}
+.hero h1{margin:0 0 8px;font-size:1.8rem;color:#fff;line-height:1.2}
+.hero p{margin:0;color:var(--muted)}
+section{scroll-margin-top:20px;padding-top:24px;margin-top:12px;border-top:1px solid var(--border)}
+section:first-of-type{border-top:none}
+h2{font-size:1.4rem;color:#fff;margin:6px 0 10px;display:flex;align-items:center;gap:10px}
+h2 .num{font-size:.8rem;color:#0d1117;background:var(--accent);padding:2px 9px;border-radius:20px;font-weight:800}
+h3{font-size:1.05rem;color:#e6edf3;margin:22px 0 6px}
+p{margin:10px 0}
+ul,ol{margin:10px 0;padding-left:22px}
+li{margin:6px 0}
+code:not(pre code){background:var(--panel2);padding:2px 6px;border-radius:5px;font-size:.88em;color:#e6b673;font-family:"SF Mono",Menlo,Consolas,monospace}
+pre{position:relative;background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:14px 16px;overflow-x:auto;margin:12px 0}
+pre code{font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.85rem;color:#d6deeb;white-space:pre}
+.copy-btn{position:absolute;top:8px;right:8px;background:var(--panel);border:1px solid var(--border);color:var(--muted);font-size:.72rem;padding:3px 9px;border-radius:6px;cursor:pointer}
+.copy-btn:hover{color:var(--text);border-color:var(--accent)}
+.copy-btn.ok{color:var(--green);border-color:var(--green)}
+.note,.warn,.tip{border-radius:8px;padding:12px 16px;margin:14px 0;border-left:4px solid;font-size:.93rem}
+.note{background:#132030;border-color:var(--accent)}
+.warn{background:#2a1d15;border-color:var(--yellow)}
+.tip{background:#12241a;border-color:var(--green)}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:.9rem}
+th,td{border:1px solid var(--border);padding:8px 12px;text-align:left}
+th{background:var(--panel2);color:#fff}
+.diagram{background:var(--code-bg);border:1px solid var(--border);border-radius:8px;padding:18px;margin:14px 0;font-family:"SF Mono",Menlo,Consolas,monospace;font-size:.8rem;color:var(--muted);white-space:pre;overflow-x:auto}
+.pill{display:inline-block;background:var(--panel2);border:1px solid var(--border);border-radius:20px;padding:2px 10px;font-size:.75rem;color:var(--muted);margin-right:6px}
+kbd{background:var(--panel2);border:1px solid var(--border);border-bottom-width:2px;border-radius:5px;padding:1px 6px;font-size:.8em;font-family:inherit}
+.q{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin:12px 0}
+.q b{color:var(--accent2)}
+details{background:var(--panel);border:1px solid var(--border);border-radius:8px;padding:10px 14px;margin:10px 0}
+summary{cursor:pointer;color:var(--accent);font-size:.9rem}
+details[open] summary{margin-bottom:8px}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="sidebar">
+  <div class="brand">Sharding Lab<small>Live LLD/HLD Cohort — by Pradeep</small></div>
+  <div class="nav">
+    <div class="grp">Setup</div>
+    <a href="#what">What you'll build</a>
+    <a href="#prereq">Prerequisites</a>
+    <a href="#start">1. Start the shards</a>
+    <a href="#init">2. Create the schema</a>
+    <a href="#seed">3. Load sample data</a>
+    <div class="grp">Explore</div>
+    <a href="#look">4. See the actual data</a>
+    <a href="#route">5. How routing works</a>
+    <a href="#single">6. Single-shard read</a>
+    <a href="#scatter">7. Cross-shard query</a>
+    <a href="#reshard">8. Why resharding hurts</a>
+    <div class="grp">Practice</div>
+    <a href="#exercises">Exercises</a>
+    <a href="#cmds">Command reference</a>
+    <a href="#trouble">Troubleshooting</a>
+    <a href="#cleanup">Cleanup</a>
+  </div>
+</nav>
+<main class="content">
+
+<div class="hero">
+  <h1>Database Sharding — Hands-on Practice Lab</h1>
+  <p>Take one logical database and split its rows across 3 real Postgres instances.
+  You run the router, watch queries get routed, and feel the trade-offs first-hand.</p>
+</div>
+
+<div class="note">
+<b>Time:</b> ~30 min &nbsp;•&nbsp; <b>You need:</b> a terminal, Docker Desktop, and the <code>sharding-demo</code> folder.
+Everything runs locally. Nothing touches the internet after the first image download.
+</div>
+
+<section id="what">
+<h2><span class="num">i</span> What you'll build</h2>
+<div class="diagram">
+              app code
+                 |
+                 v
+          +---------------+       shard_of(user_id) = md5(user_id) % 3
+          |   shard.py    |   <-- the ONLY thing that knows sharding exists
+          +--+----+----+--+
+             |    |    |
+        shard0  shard1  shard2      <-- 3 plain Postgres 16 containers
+        :5433   :5434   :5435           each holds a DISJOINT set of users
+</div>
+<ul>
+  <li><b>3 shards</b> = 3 separate Postgres containers. None of them knows the others exist.</li>
+  <li><b>The shard key</b> is <code>user_id</code>. A user and all their orders always live on the same shard.</li>
+  <li><b>The routing rule</b> is <code>md5(user_id) % 3</code> &rarr; shard 0, 1, or 2.</li>
+  <li><b>The router</b> (<code>shard.py</code>) computes the shard, then talks to just that container.</li>
+</ul>
+</section>
+
+<section id="prereq">
+<h2><span class="num">0</span> Prerequisites</h2>
+<ol>
+  <li>Install <a href="https://www.docker.com/products/docker-desktop/">Docker Desktop</a> and <b>open it</b> — wait until the whale icon stops animating.</li>
+  <li>Get the <code>sharding-demo</code> folder (from your mentor / repo). It contains
+      <code>docker-compose.yml</code>, <code>schema.sql</code>, <code>shard.py</code>, <code>README.md</code>.</li>
+  <li>Open a terminal and <b>go into that folder</b>. Every command below assumes you are inside it:</li>
+</ol>
+<pre><code>cd path/to/sharding-demo</code></pre>
+<div class="warn">
+<b>Most common mistake:</b> running <code>docker compose ...</code> from the wrong directory
+(e.g. your home folder). You'll see <code>service "shard0" is not running</code>. Fix:
+<code>cd</code> into <code>sharding-demo</code> first. Compose finds the project by the
+<code>docker-compose.yml</code> in your current directory.
+</div>
+</section>
+
+<section id="start">
+<h2><span class="num">1</span> Start the shards</h2>
+<pre><code>docker compose up -d</code></pre>
+<p>First run downloads the <code>postgres:16</code> image (~1 min). Then check all three are up:</p>
+<pre><code>docker compose ps</code></pre>
+<p>You should see <code>shard0</code>, <code>shard1</code>, <code>shard2</code> with status <code>Up</code> and ports
+<code>5433</code>, <code>5434</code>, <code>5435</code>.</p>
+<div class="tip">Give Postgres ~5 seconds after <code>up -d</code> before the next step, so it finishes booting.</div>
+</section>
+
+<section id="init">
+<h2><span class="num">2</span> Create the schema</h2>
+<p>Apply the same <code>users</code> + <code>orders</code> tables to <b>all three</b> shards:</p>
+<pre><code>./shard.py init</code></pre>
+<p>Expected output:</p>
+<pre><code>  shard0: schema applied
+  shard1: schema applied
+  shard2: schema applied</code></pre>
+<div class="note">On Windows, if <code>./shard.py</code> doesn't run, use <code>python shard.py init</code> (and <code>python</code> instead of <code>./shard.py</code> everywhere below).</div>
+</section>
+
+<section id="seed">
+<h2><span class="num">3</span> Load sample data</h2>
+<p>Create 30 users, each with 0–3 random orders. Watch every insert get routed:</p>
+<pre><code>./shard.py seed 30</code></pre>
+<p>Each line shows the decision, e.g.:</p>
+<pre><code>user id 14 -> md5(14) % 3 = 1 -> shard1
+  [shard1] INSERT INTO users(id,name,city) VALUES (14,'Priya13','Delhi');</code></pre>
+<p>At the end you get the distribution:</p>
+<pre><code>rows per shard:
+  shard0:   9 users   14 orders  #########
+  shard1:   8 users   11 orders  ########
+  shard2:  13 users   23 orders  #############
+  total: 30 users, 48 orders</code></pre>
+<div class="q"><b>Think:</b> the counts aren't exactly 10/10/10. Is that a bug? (No — hashing is
+statistically even, not perfectly even. With 30 rows the wobble is visible; with 30 million it's &lt;1%.)</div>
+</section>
+
+<section id="look">
+<h2><span class="num">4</span> See the actual data</h2>
+<p>Each shard is a normal database. Open a SQL shell on one:</p>
+<pre><code>docker compose exec shard0 psql -U demo -d appdb</code></pre>
+<p>At the <code>appdb=#</code> prompt:</p>
+<pre><code>\dt                       -- list tables
+SELECT * FROM users ORDER BY id;
+SELECT * FROM orders ORDER BY id;
+SELECT count(*) FROM users;
+\q                        -- quit</code></pre>
+<p>Now do the same on <code>shard1</code> and <code>shard2</code> — <b>different rows every time, no overlap.</b></p>
+
+<h3>Or without opening a shell</h3>
+<pre><code>docker compose exec shard0 psql -U demo -d appdb -c "SELECT * FROM users ORDER BY id;"
+docker compose exec shard1 psql -U demo -d appdb -c "SELECT * FROM users ORDER BY id;"
+docker compose exec shard2 psql -U demo -d appdb -c "SELECT * FROM users ORDER BY id;"</code></pre>
+
+<h3>Or all shards at once, via the router</h3>
+<pre><code>./shard.py query-all "SELECT * FROM users ORDER BY id;"
+./shard.py distribution</code></pre>
+
+<h3>Or in a GUI</h3>
+<p>Use TablePlus, DBeaver, or pgAdmin. Add three connections:</p>
+<table>
+<tr><th>Shard</th><th>Host</th><th>Port</th><th>User</th><th>Password</th><th>Database</th></tr>
+<tr><td>shard0</td><td>localhost</td><td>5433</td><td>demo</td><td>demo</td><td>appdb</td></tr>
+<tr><td>shard1</td><td>localhost</td><td>5434</td><td>demo</td><td>demo</td><td>appdb</td></tr>
+<tr><td>shard2</td><td>localhost</td><td>5435</td><td>demo</td><td>demo</td><td>appdb</td></tr>
+</table>
+<p>Put the three windows side by side — the most visual way to see "same table, different rows".</p>
+</section>
+
+<section id="route">
+<h2><span class="num">5</span> How routing works</h2>
+<p>Ask where any key lands — no DB call, just the hash:</p>
+<pre><code>./shard.py where 7
+./shard.py where 8
+./shard.py where 42</code></pre>
+<pre><code>key 7 -> shard index 0 -> shard0</code></pre>
+<p>Open <code>shard.py</code> and read these 3 lines — that is the entire sharding algorithm:</p>
+<pre><code>def shard_index(key, n=3):
+    h = hashlib.md5(str(key).encode()).hexdigest()
+    return int(h, 16) % n</code></pre>
+<div class="q"><b>Think:</b> why hash the id instead of just <code>user_id % 3</code>? (Sequential ids would
+still spread fine — but real keys are often not sequential, e.g. emails, and can cluster.
+Hashing removes any pattern in the key.)</div>
+</section>
+
+<section id="single">
+<h2><span class="num">6</span> Single-shard read — the payoff</h2>
+<pre><code>./shard.py get-user 12</code></pre>
+<pre><code>routing: user 12 -> shard2  (1 shard queried, not 3)
+12 | Arjun11 | Hyderabad
+orders:
+13 | 3622.02
+14 | 4250.64</code></pre>
+<p>The router hit <b>one</b> container. Orders are sharded by the same <code>user_id</code>,
+so "user + their orders" never crosses a shard. This is why you shard by the key you
+read by.</p>
+<div class="q"><b>Think:</b> what if the product now needs "all orders shipped to Pune this week"?
+That query has no <code>user_id</code> in it. What happens? (You're forced to ask every shard —
+see the next section.)</div>
+</section>
+
+<section id="scatter">
+<h2><span class="num">7</span> Cross-shard query — the cost</h2>
+<p>A query with no shard key must go to every shard (<b>scatter</b>), then the app merges
+the answers (<b>gather</b>):</p>
+<pre><code>./shard.py query-all "SELECT count(*), COALESCE(sum(amount),0) FROM orders;"
+./shard.py top-cities</code></pre>
+<p><code>top-cities</code> asks each shard for its local city counts, then adds them up in Python:</p>
+<pre><code>global city counts (merged in app from 3 partial results):
+  Mumbai       7
+  Pune         6
+  Bengaluru    6</code></pre>
+<div class="warn">
+<b>What just got harder:</b>
+<ul>
+<li><code>ORDER BY ... LIMIT 10</code> — you must pull top-10 from <i>each</i> shard, then re-sort.</li>
+<li><code>JOIN</code> between two users on different shards — no single DB can do it.</li>
+<li><code>COUNT(DISTINCT email)</code> across shards — needs de-dup in the app.</li>
+<li>A transaction spanning two shards — no longer ACID for free.</li>
+<li>Latency = the <i>slowest</i> shard, not the average.</li>
+</ul>
+This is why sharded systems often keep a separate analytics DB or a search index.
+</div>
+</section>
+
+<section id="reshard">
+<h2><span class="num">8</span> Why adding a shard hurts</h2>
+<p>Say traffic grows and you want 4 shards instead of 3:</p>
+<pre><code>./shard.py reshard 4</code></pre>
+<pre><code>resharding 3 -> 4: 21/30 users change shard (70%)
+this is why naive hash-mod sharding is painful to scale</code></pre>
+<p>Changing <code>% 3</code> to <code>% 4</code> remaps almost every key &rarr; you'd copy ~70% of your data
+while the site is live. Fixes people actually use:</p>
+<ul>
+  <li><b>Consistent hashing</b> — only ~<code>1/N</code> of keys move when you add a node.</li>
+  <li><b>Virtual buckets</b> — hash into e.g. 4096 fixed buckets, map buckets &rarr; nodes.
+      To rebalance you move <i>buckets</i>, not individual keys.</li>
+</ul>
+<div class="q"><b>Think:</b> run <code>./shard.py reshard 6</code>. Is it better or worse than going to 4?
+Why does going from 3 to 6 (a multiple) move fewer rows?</div>
+</section>
+
+<section id="exercises">
+<h2><span class="num">★</span> Exercises</h2>
+
+<div class="q"><b>Exercise 1 — Prove disjointness.</b>
+Write one command that shows user id <code>5</code> exists on exactly one shard and is absent from the other two.
+<details><summary>hint</summary>
+<pre><code>./shard.py query-all "SELECT * FROM users WHERE id = 5;"</code></pre>
+Two shards print <code>(no rows)</code>, one prints the user.</details></div>
+
+<div class="q"><b>Exercise 2 — Add yourself.</b>
+Insert a user with your name, then confirm which shard you landed on two different ways
+(the router's prediction, and by querying that shard directly).
+<details><summary>hint</summary>
+<pre><code>./shard.py add-user "YourName" YourCity
+# note the id it prints, say 31
+./shard.py where 31
+docker compose exec shard2 psql -U demo -d appdb -c "SELECT * FROM users WHERE id=31;"</code></pre></details></div>
+
+<div class="q"><b>Exercise 3 — Break the balance.</b>
+Imagine sharding by <code>city</code> instead of <code>user_id</code>. Run
+<code>./shard.py top-cities</code> and argue why that key would create a hotspot.
+Which city would overload its shard?</div>
+
+<div class="q"><b>Exercise 4 — Global top spender.</b>
+Find the single user with the highest total order amount <i>across all shards</i>.
+You can't do it in one SQL query — describe the scatter-gather steps, then verify with:
+<details><summary>hint</summary>
+<pre><code>./shard.py query-all "SELECT user_id, SUM(amount) t FROM orders GROUP BY user_id ORDER BY t DESC LIMIT 1;"</code></pre>
+Each shard gives its local top spender; you compare the 3 winners by hand.</details></div>
+
+<div class="q"><b>Exercise 5 — Resharding math.</b>
+Before running it, predict: going from 3 &rarr; 9 shards, roughly what % of rows move?
+Then check with <code>./shard.py reshard 9</code>. Were you close?</div>
+
+<div class="q"><b>Exercise 6 — Kill a shard.</b>
+Run <code>docker compose stop shard1</code>, then <code>./shard.py get-user 12</code> vs a user on shard1,
+then <code>./shard.py distribution</code>. What still works? What fails? This is the
+availability story of sharding. Restart with <code>docker compose start shard1</code>.</div>
+</section>
+
+<section id="cmds">
+<h2><span class="num">⌘</span> Command reference</h2>
+<table>
+<tr><th>Command</th><th>What it does</th></tr>
+<tr><td><code>./shard.py init</code></td><td>apply <code>schema.sql</code> to every shard</td></tr>
+<tr><td><code>./shard.py seed N</code></td><td>create N users + random orders, routed by hash</td></tr>
+<tr><td><code>./shard.py add-user NAME CITY</code></td><td>insert one user (id = global max + 1)</td></tr>
+<tr><td><code>./shard.py get-user ID</code></td><td>fetch user + orders — hits ONE shard</td></tr>
+<tr><td><code>./shard.py where KEY</code></td><td>print which shard a key maps to (no DB call)</td></tr>
+<tr><td><code>./shard.py distribution</code></td><td>row counts per shard, as a bar chart</td></tr>
+<tr><td><code>./shard.py query-all "SQL"</code></td><td>run the same SQL on all shards, print each result</td></tr>
+<tr><td><code>./shard.py top-cities</code></td><td>cross-shard aggregation, merged in the app</td></tr>
+<tr><td><code>./shard.py reshard M</code></td><td>% of rows that would move going 3 &rarr; M shards</td></tr>
+</table>
+<h3>Useful Docker commands</h3>
+<table>
+<tr><th>Command</th><th>What it does</th></tr>
+<tr><td><code>docker compose ps</code></td><td>show shard containers + ports</td></tr>
+<tr><td><code>docker compose logs shard0</code></td><td>Postgres logs for one shard</td></tr>
+<tr><td><code>docker compose exec shard0 psql -U demo -d appdb</code></td><td>SQL shell on a shard</td></tr>
+<tr><td><code>docker compose stop / start shardN</code></td><td>simulate a shard going down / recovering</td></tr>
+<tr><td><code>docker compose down</code></td><td>stop &amp; remove containers (data survives)</td></tr>
+<tr><td><code>docker compose down -v</code></td><td>also delete the data volumes (full reset)</td></tr>
+</table>
+</section>
+
+<section id="trouble">
+<h2><span class="num">?</span> Troubleshooting</h2>
+<table>
+<tr><th>Symptom</th><th>Fix</th></tr>
+<tr><td><code>Cannot connect to the Docker daemon</code></td><td>Docker Desktop isn't running. Open it, wait for the whale icon to settle.</td></tr>
+<tr><td><code>service "shard0" is not running</code></td><td>You're in the wrong folder or containers aren't up. <code>cd</code> into <code>sharding-demo</code>, then <code>docker compose up -d</code>.</td></tr>
+<tr><td><code>the attribute 'version' is obsolete</code></td><td>Harmless warning from a stray <code>docker-compose.yml</code> in your home dir. Ignore, or <code>cd</code> into the right folder.</td></tr>
+<tr><td><code>port is already allocated</code> (5433/5434/5435)</td><td>Another Postgres is using that port. Stop it, or edit the port mappings in <code>docker-compose.yml</code>.</td></tr>
+<tr><td><code>./shard.py: permission denied</code></td><td><code>chmod +x shard.py</code>, or run <code>python3 shard.py ...</code>.</td></tr>
+<tr><td><code>psql: FATAL ... database "appdb" does not exist</code></td><td>Postgres was still booting. Wait 5s and retry; if it persists, <code>docker compose down -v &amp;&amp; docker compose up -d</code>.</td></tr>
+<tr><td>Weird / duplicate data</td><td>Full reset: <code>docker compose down -v &amp;&amp; docker compose up -d &amp;&amp; ./shard.py init &amp;&amp; ./shard.py seed 30</code>.</td></tr>
+</table>
+</section>
+
+<section id="cleanup">
+<h2><span class="num">✓</span> Cleanup</h2>
+<p>Stop the containers but keep your data for next time:</p>
+<pre><code>docker compose down</code></pre>
+<p>Wipe everything (containers + data), to start completely fresh:</p>
+<pre><code>docker compose down -v</code></pre>
+<div class="tip">Re-running the lab later: <code>docker compose up -d</code> and your seeded data is still there
+(unless you used <code>-v</code>). Otherwise re-run <code>init</code> + <code>seed</code>.</div>
+</section>
+
+<section>
+<h2><span class="num">→</span> What to take away</h2>
+<ul>
+<li>Sharding lives in the <b>app layer</b>. The databases are ordinary and unaware.</li>
+<li>Shard by the key you <b>read by</b>, and co-locate related data on the same key.</li>
+<li>Single-key ops stay fast; anything without the key becomes <b>scatter-gather</b>.</li>
+<li>You give up cross-shard joins, global constraints, multi-shard transactions.</li>
+<li>Naive <code>hash % N</code> makes growth expensive — that's what consistent hashing / virtual buckets solve.</li>
+</ul>
+</section>
+
+</main>
+</div>
+
+<script>
+document.querySelectorAll('pre').forEach(function(pre){
+  var b=document.createElement('button');
+  b.className='copy-btn';b.textContent='copy';
+  b.onclick=function(){
+    var t=pre.querySelector('code').innerText;
+    navigator.clipboard.writeText(t).then(function(){
+      b.textContent='copied';b.classList.add('ok');
+      setTimeout(function(){b.textContent='copy';b.classList.remove('ok');},1400);
+    });
+  };
+  pre.appendChild(b);
+});
+</script>
+</body>
+</html>

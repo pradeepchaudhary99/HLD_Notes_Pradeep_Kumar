@@ -1,0 +1,27 @@
+# 3 independent Postgres instances = 3 shards.
+# Nothing here knows about "sharding" — each is just a plain database.
+# The routing logic lives entirely in the app layer (shard.py).
+services:
+  shard0:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: appdb
+    ports: ["5433:5432"]
+
+  shard1:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: appdb
+    ports: ["5434:5432"]
+
+  shard2:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: appdb
+    ports: ["5435:5432"]
